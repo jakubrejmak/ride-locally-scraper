@@ -1,10 +1,12 @@
-from db.schema import ScrTargetTable
+from sqlalchemy.ext.asyncio import AsyncEngine
+from db.schema import ttScrTargetTable
 import asyncio
 from contextlib import nullcontext
 
 
 async def run_scrape(
-    target: ScrTargetTable,
+    target: ttScrTargetTable,
+    engine: AsyncEngine,
     stop_condition: asyncio.Event | None = None,
     semaphore: asyncio.Semaphore | None = None,
 ) -> bool:

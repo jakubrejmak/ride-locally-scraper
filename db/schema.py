@@ -25,8 +25,8 @@ class ScrapeStatus(enum.Enum):
     failed = "failed"
 
 
-class ScrTargetTable(Base):
-    __tablename__ = "scr_targets"
+class ttScrTargetTable(Base):
+    __tablename__ = "tt_scr_targets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -45,8 +45,8 @@ class ScrTargetTable(Base):
     )
 
 
-class ScrRunTable(Base):
-    __tablename__ = "scr_runs"
+class ttScrRunTable(Base):
+    __tablename__ = "tt_scr_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     target_id: Mapped[int] = mapped_column(
@@ -57,7 +57,7 @@ class ScrRunTable(Base):
         nullable=False,
         default=ScrapeStatus.pending,
     )
-    filepath: Mapped[str | None] = mapped_column(Text)
+    o_filepath: Mapped[str | None] = mapped_column(Text)
     error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column()
     finished_at: Mapped[datetime | None] = mapped_column()
@@ -66,8 +66,8 @@ class ScrRunTable(Base):
     )
 
 
-class ScrProcessedTable(Base):
-    __tablename__ = "scr_processed"
+class ttScrProcessedTable(Base):
+    __tablename__ = "tt_scr_processed"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     run_id: Mapped[int] = mapped_column(
@@ -76,7 +76,7 @@ class ScrProcessedTable(Base):
     target_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("scr_targets.id", ondelete="CASCADE"), nullable=False
     )
-    output_filepath: Mapped[str] = mapped_column(Text, nullable=False)
+    o_filepath: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.now()
