@@ -1,7 +1,2 @@
 sqlalchemy
-asyncpg
-greenlet
-alembic
-httpx
-bs4
-playwright
+python-dotenv
