@@ -1,7 +1,6 @@
 ###
-# main scraper service
-# go through the sources tab periodically, find is_active ones,
-# check its schedule_cron and delegate the target to worker
+#   main service
+#   orchestrates the loop
 ###
 
 import asyncio
