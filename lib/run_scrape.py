@@ -6,11 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from db.schema import ttScrTargetTable, ttScrRunTable
 import asyncio
 from contextlib import nullcontext
+from db.session import session
+from models.types import ScrTargetConfig, ScrTargetResult
 
+async def save_result(result: ScrTargetResult | None) -> bool:
+    if not result:
+        return False
+    return True
 
 async def run_scrape(
     target: ttScrTargetTable,
-    engine: AsyncEngine,
     stop_condition: asyncio.Event | None = None,
     semaphore: asyncio.Semaphore | None = None,
 ) -> bool:
@@ -18,5 +23,15 @@ async def run_scrape(
     if stop_condition and stop_condition.is_set():
         return False
     async with semaphore or nullcontext():
-        # body
-        return True
+        config = ScrTargetConfig.model_validate(target.config)
+        match config.scrape_method:
+            case "firecrawl":
+                from lib.scrapers.run_firecrawl import run_firecrawl
+                assert config.firecrawl_conf
+                result = await run_firecrawl(target.url, config.firecrawl_conf)
+            case "scrapling":
+                from lib.scrapers.run_scrapling import run_scrapling
+                assert config.scrapling_conf
+                result = await run_scrapling(target.url, config.scrapling_conf)
+        await save_result(result)
+    return True

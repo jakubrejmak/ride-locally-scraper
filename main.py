@@ -10,9 +10,7 @@ from logging import getLogger
 from conf import config
 from lib.get_due_targets import *
 from lib.run_scrape import *
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
-engine = create_async_engine(config.DATABASE_URL)
 _shutdown = asyncio.Event()
 _semaphore = asyncio.Semaphore(5)
 
@@ -35,9 +33,9 @@ async def scrape_loop():
 
     while not _shutdown.is_set():
         try:
-            targets = await get_due_targets(engine=engine)
+            targets = await get_due_targets()
             for t in targets:
-                task = asyncio.create_task(run_scrape(t, engine=engine, semaphore=_semaphore, stop_condition=_shutdown))
+                task = asyncio.create_task(run_scrape(t, semaphore=_semaphore, stop_condition=_shutdown))
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
         except Exception as e:

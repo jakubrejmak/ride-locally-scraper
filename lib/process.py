@@ -9,26 +9,27 @@ import uuid
 from db.schema import ttScrTargetTable, ttScrProcessedTable, ttScrRunTable
 import asyncio
 from contextlib import nullcontext
+from db.session import session
 
 
-async def try_get_existing(session: AsyncSession, run: ttScrRunTable) -> ttScrProcessedTable:
-    q = select(ttScrProcessedTable).where(ttScrProcessedTable.run_id == run.id)
-    resp = await session.execute(q)
-    result = resp.scalar_one_or_none()
-    if not result:
-        result = ttScrProcessedTable(
-            run_id=run.id,
-            target_id=run.target_id,
-            o_filepath=uuid.uuid4(),
-        )
-        session.add(result)
-        await session.flush()
+async def try_get_existing(run: ttScrRunTable) -> ttScrProcessedTable:
+    async with session() as s:
+        q = select(ttScrProcessedTable).where(ttScrProcessedTable.run_id == run.id)
+        resp = await s.execute(q)
+        result = resp.scalar_one_or_none()
+        if not result:
+            result = ttScrProcessedTable(
+                run_id=run.id,
+                target_id=run.target_id,
+                o_filepath=uuid.uuid4(),
+            )
+            s.add(result)
+            await s.flush()
     return result
 
 
 async def process_file(
     run: ttScrRunTable,
-    engine: AsyncEngine,
     stop_condition: asyncio.Event | None = None,
     semaphore: asyncio.Semaphore | None = None,
 ) -> bool:
@@ -37,8 +38,7 @@ async def process_file(
         return False
 
     async with semaphore or nullcontext():
-        async with AsyncSession(engine) as session:
-            exists = await try_get_existing(session, run)
-        return True
+
+        to_process = await try_get_existing(run)
 
     return True

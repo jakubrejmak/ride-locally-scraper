@@ -4,6 +4,7 @@ from db.schema import ttScrTargetTable
 from croniter import croniter
 from datetime import datetime, timezone
 from conf import config
+from db.session import session
 
 def is_due(schedule_cron: str | None, poll_interval: int) -> bool:
     if not schedule_cron:
@@ -15,15 +16,15 @@ def is_due(schedule_cron: str | None, poll_interval: int) -> bool:
     return (now - prev_run).total_seconds() <= poll_interval
 
 
-async def get_due_targets(engine: AsyncEngine) -> list[ttScrTargetTable]:
-    async with AsyncSession(engine) as session:
-        q = select(ttScrTargetTable).where(ttScrTargetTable.is_active)
-        res = await session.execute(q)
+async def get_due_targets() -> list[ttScrTargetTable]:
+    async with session() as s:
+        q = select(ttScrTargetTable).where(ttScrTargetTable.is_active).with_for_update(skip_locked=True)
+        res = await s.execute(q)
         active_targets: list[ttScrTargetTable] = list(res.scalars().all())
 
-    due_targets = []
-    for t in active_targets:
-        if is_due(t.schedule_cron, config.SRC_T_POLL_INTERVAL):
-            due_targets.append(t)
+        due_targets = []
+        for t in active_targets:
+            if is_due(t.schedule_cron, config.SRC_T_POLL_INTERVAL):
+                due_targets.append(t)
 
     return due_targets
