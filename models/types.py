@@ -4,18 +4,24 @@ from typing import Literal, Optional
 
 
 class FirecrawlConfig(BaseModel):
-    pass
+    format: Optional[Literal["text", "image", "pdf"]] = None
 
 
 class ScraplingConfig(BaseModel):
-    pass
+    format: Optional[Literal["text", "image", "pdf"]] = None
+    fetcher: Literal["AsyncFetcher", "DynamicFetcher", "StealthyFetcher"] = "AsyncFetcher"
+    selectors: Optional[list[str]] = None
+    playwright_script_path: Optional[str] = None
+
+    @model_validator(mode="after")
+    def ensure_no_playwright_w_asyncfetcher(self) -> Self:
+        if self.fetcher == "AsyncFetcher" and self.playwright_script_path:
+            raise ValueError("Playwright script path was passed but AsyncFetcher has no playwright compatibility")
+        return self
 
 
 class ScrTargetConfig(BaseModel):
     scrape_method: Literal["firecrawl", "scrapling"]
-    table_format: Optional[Literal["text", "image", "pdf"]] = None
-    selectors: Optional[list[str]] = None
-    playwright_script_path: Optional[str] = None
     firecrawl_conf: Optional[FirecrawlConfig] = None
     scrapling_conf: Optional[ScraplingConfig] = None
 
