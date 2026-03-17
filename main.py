@@ -24,6 +24,19 @@ def _handle_sig():
     logger.info("shutdown signal recieved")
     _shutdown.set()
 
+###
+#   scrape loop gathers resources with static algorythims,
+#   while process loop is mostly llm domain. That means everything that
+#   leaves scraper will be treated as singular timetable
+#
+#   some targets are discovery targets — listing pages where the script
+#   finds N links (e.g. tender documents). since the processor handles
+#   one input at a time, the script registers each link as its own target
+#   so they get scraped individually and each produces one clean processor input.
+#   targets that are a single page with one document skip this and return a
+#   result directly without spawning new targets.
+###
+
 async def scrape_loop():
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):

@@ -11,11 +11,11 @@ class ScraplingConfig(BaseModel):
     format: Optional[Literal["text", "image", "pdf"]] = None
     fetcher: Literal["AsyncFetcher", "DynamicFetcher", "StealthyFetcher"] = "AsyncFetcher"
     selectors: Optional[list[str]] = None
-    playwright_script_path: Optional[str] = None
+    script_path: Optional[str] = None
 
     @model_validator(mode="after")
     def ensure_no_playwright_w_asyncfetcher(self) -> Self:
-        if self.fetcher == "AsyncFetcher" and self.playwright_script_path:
+        if self.fetcher == "AsyncFetcher" and self.script_path:
             raise ValueError("Playwright script path was passed but AsyncFetcher has no playwright compatibility")
         return self
 
@@ -39,5 +39,16 @@ class ScrTargetConfig(BaseModel):
         return self
 
 class ScrTargetResult(BaseModel):
-    text_parts: list[str]
-    images: list[Base64Bytes]
+    text_parts: list[str] = []
+    files: list[dict[str, Base64Bytes]] = [] # filetype, encoded file
+    images: list[dict[str, Base64Bytes]] = [] # filetype, encoded img
+
+class NewScrTarget(BaseModel):
+    name: str
+    url: str
+    config: ScrTargetConfig
+
+class ScrScriptResult(BaseModel):
+    new_targets: list[NewScrTarget] = []   # scripts can add new targets
+    self_update: dict = {}              # fields to patch on current target row
+    run_result: ScrTargetResult | None = None

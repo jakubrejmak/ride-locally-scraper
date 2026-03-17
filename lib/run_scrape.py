@@ -7,9 +7,9 @@ from db.schema import ttScrTargetTable, ttScrRunTable
 import asyncio
 from contextlib import nullcontext
 from db.session import session
-from models.types import ScrTargetConfig, ScrTargetResult
+from models.types import ScrTargetConfig, ScrTargetResult, ScrScriptResult
 
-async def save_result(result: ScrTargetResult | None) -> bool:
+async def save_result(result: ScrTargetResult | ScrScriptResult) -> bool:
     if not result:
         return False
     return True
@@ -33,5 +33,6 @@ async def run_scrape(
                 from lib.scrapers.run_scrapling import run_scrapling
                 assert config.scrapling_conf
                 result = await run_scrapling(target.url, config.scrapling_conf)
-        await save_result(result)
+        if result:
+            await save_result(result)
     return True

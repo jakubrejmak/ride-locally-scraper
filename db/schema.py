@@ -35,7 +35,7 @@ class ttScrTargetTable(Base):
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     carrier_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("carriers.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey("carriers.id", ondelete="CASCADE"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.now()

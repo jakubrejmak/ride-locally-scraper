@@ -3,3 +3,4 @@ python-dotenv
 scrapling
 croniter
 pydantic
+xlrd
