@@ -4,3 +4,4 @@ scrapling
 croniter
 pydantic
 xlrd
+python-magic

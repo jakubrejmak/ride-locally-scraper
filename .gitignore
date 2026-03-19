@@ -1,3 +1,5 @@
 venv
+.vscode
 .env
 scrapling_scripts
+processor_prompts

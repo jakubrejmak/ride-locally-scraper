@@ -2,6 +2,7 @@ import importlib.util
 import inspect
 from models.types import ScraplingConfig, ScrTargetResult, ScrScriptResult
 from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
+from lib.files import chck_type
 
 FETCHERS = {
     "AsyncFetcher": AsyncFetcher,
@@ -34,7 +35,12 @@ async def run_scrapling(
 ) -> ScrTargetResult | ScrScriptResult | None:
     fetcher = FETCHERS[config.fetcher]
 
-    result = None
+    def _fetch(fetcher, url: str):
+        if fetcher is AsyncFetcher:
+            return fetcher.get(url)
+        return fetcher.async_fetch(url)
+
+    result: ScrScriptResult | ScrTargetResult | None = None
     if config.script_path and fetcher is not AsyncFetcher:
         # custom script path
         result = await _execute_script(fetcher, config.script_path, url)
@@ -44,11 +50,10 @@ async def run_scrapling(
             pass
     else:
         # TODO get whole page
-        async def _fetch(fetcher, url: str):
-            if fetcher is AsyncFetcher:
-                return fetcher.get(url)
-            return fetcher.async_fetch(url)
-
-        res = await _fetch(fetcher, url=url)
+        page = await _fetch(fetcher, url=url)
+        expected = config.force_mime
+        actual = chck_type(page.body, "from_bytes", "full")
+        if expected and expected != actual:
+            raise ValueError(f"The forced mime type '{expected}' is different than the actual type '{actual}'")
 
     return result
