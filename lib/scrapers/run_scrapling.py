@@ -49,11 +49,14 @@ async def run_scrapling(
         for s in config.selectors:
             pass
     else:
-        # TODO get whole page
+        # whole page path
         page = await _fetch(fetcher, url=url)
+        got_ext = chck_type(page.body, "from_bytes", "full")
+        if not got_ext:
+            raise Exception(f"Content type could not be inferred")
         expected = config.force_mime
-        actual = chck_type(page.body, "from_bytes", "full")
-        if expected and expected != actual:
-            raise ValueError(f"The forced mime type '{expected}' is different than the actual type '{actual}'")
+        if expected and expected != got_ext:
+            raise ValueError(f"The forced mime type: '{expected}' is different than the type got: '{got_ext}'")
+        result = ScrTargetResult(data=[{got_ext: page.body}])
 
     return result

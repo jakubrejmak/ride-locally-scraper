@@ -44,10 +44,8 @@ class ScrTargetConfig(BaseModel):
 
 
 class ScrTargetResult(BaseModel):
-    text_parts: list[str] = []
-    documents: list[dict[str, Base64Bytes]] = []  # filetype, encoded file
-    images: list[dict[str, Base64Bytes]] = []  # filetype, encoded img
-
+    # list of content keyed by mime type
+    data: list[dict[str, Base64Bytes]]
 
 class NewScrTarget(BaseModel):
     name: str
@@ -56,6 +54,6 @@ class NewScrTarget(BaseModel):
 
 
 class ScrScriptResult(BaseModel):
-    new_targets: list[NewScrTarget] = []  # scripts can add new targets
-    self_update: dict = {}  # fields to patch on current target row
-    run_result: ScrTargetResult | None = None
+    new_targets: Optional[list[NewScrTarget]] = None  # scripts can add new targets
+    self_update: Optional[dict] = None  # fields to patch on current target row
+    run_result: Optional[ScrTargetResult] = None
