@@ -47,13 +47,17 @@ class ScrTargetResult(BaseModel):
     # list of content keyed by mime type
     data: list[dict[str, Base64Bytes]]
 
+
 class NewScrTarget(BaseModel):
     name: str
     url: str
     config: ScrTargetConfig
+    is_active: bool
+    schedule_cron: Optional[str] = None
+    carrier_id: Optional[int] = None
 
 
 class ScrScriptResult(BaseModel):
     new_targets: Optional[list[NewScrTarget]] = None  # scripts can add new targets
-    self_update: Optional[dict] = None  # fields to patch on current target row
+    self_update: Optional[NewScrTarget] = None  # fields to patch on current target row
     run_result: Optional[ScrTargetResult] = None
