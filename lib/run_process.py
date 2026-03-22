@@ -3,13 +3,28 @@
 #   either static analisys or with the help of the llm
 ###
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
-from sqlalchemy import select
-import uuid
-from db.schema import ttScrTargetTable, ttScrProcessedTable, ttScrRunTable
 import asyncio
+import uuid
 from contextlib import nullcontext
+
+from sqlalchemy import select
+
+from db.schema import ttScrProcessedTable, ttScrRunTable, ttScrTargetTable
 from db.session import session
+from models.types import ScrTargetConfig
+from logging import getLogger
+
+log = getLogger(__name__)
+
+async def _get_processor_config(target_id: int):
+    async with session() as s:
+        q = select(ttScrTargetTable).where(ttScrTargetTable.id == target_id)
+        r = await s.execute(q)
+        result = r.scalar_one()
+
+    config = ScrTargetConfig(**result.config)
+
+    return config.processor
 
 
 async def try_get_existing(run: ttScrRunTable) -> ttScrProcessedTable:
@@ -38,7 +53,7 @@ async def process_file(
         return False
 
     async with semaphore or nullcontext():
-
-        to_process = await try_get_existing(run)
+        run_to_process = await try_get_existing(run)
+        processor_config = _get_processor_config(run.target_id)
 
     return True

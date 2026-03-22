@@ -1,14 +1,19 @@
-from pydantic import BaseModel, Base64Bytes, model_validator
-from typing_extensions import Self
 from typing import Literal, Optional
+
+from pydantic import Base64Bytes, BaseModel, Field, model_validator
+from typing_extensions import Annotated, Self
 
 
 class FirecrawlConfig(BaseModel):
+    scrape_method: Literal["firecrawl"] = "firecrawl"
     format: Optional[str] = None
 
 
 class ScraplingConfig(BaseModel):
-    force_mime: Optional[str] = None # used to force the mime type. If scraped data does not match the format the exception will be raised
+    scrape_method: Literal["scrapling"] = "scrapling"
+    force_mime: Optional[str] = (
+        None  # used to force the mime type. If scraped data does not match the format the exception will be raised
+    )
     fetcher: Literal["AsyncFetcher", "DynamicFetcher", "StealthyFetcher"] = (
         "AsyncFetcher"
     )
@@ -24,23 +29,20 @@ class ScraplingConfig(BaseModel):
         return self
 
 
-class ScrTargetConfig(BaseModel):
-    scrape_method: Literal["firecrawl", "scrapling"]
-    firecrawl_conf: Optional[FirecrawlConfig] = None
-    scrapling_conf: Optional[ScraplingConfig] = None
+SupportedLLMModels = Literal["gemini-3-flash-preview"]
 
-    @model_validator(mode="after")
-    def ensure_scraper_config(self) -> Self:
-        if (
-            self.scrape_method == "firecrawl"
-            and not self.firecrawl_conf
-            or self.scrape_method == "scrapling"
-            and not self.scrapling_conf
-        ):
-            raise ValueError(
-                f"Picked scrape method: {self.scrape_method} does not have config associated with it"
-            )
-        return self
+
+class LLMProcessorConfig(BaseModel):
+    process_method: Literal["llm"] = "llm"
+    llm_model: SupportedLLMModels
+    provider: Literal["gemini"]
+
+
+class ScrTargetConfig(BaseModel):
+    scraper: Annotated[
+        FirecrawlConfig | ScraplingConfig, Field(discriminator="scrape_method")
+    ]
+    processor: Optional[LLMProcessorConfig] = None
 
 
 class ScrFileData(BaseModel):

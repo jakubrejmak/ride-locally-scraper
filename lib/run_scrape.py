@@ -9,7 +9,7 @@ from datetime import datetime, UTC
 from db.schema import ttScrTargetTable, ttScrRunTable, ScrapeStatus
 from db.session import session
 from contextlib import nullcontext
-from models.types import ScrTargetConfig, ScrTargetResult, ScrScriptResult, NewScrTarget
+from models.types import ScrTargetConfig, ScrTargetResult, ScrScriptResult, NewScrTarget, FirecrawlConfig, ScraplingConfig
 from lib.scrapers.run_firecrawl import run_firecrawl
 from lib.scrapers.run_scrapling import run_scrapling
 from logging import getLogger
@@ -66,7 +66,7 @@ async def handle_self_update(
 
     async with session() as s:
         s.add(target)
-        await s.flush()
+        await s.commit()
 
     return diff if diff else None
 
@@ -86,7 +86,7 @@ async def handle_new_targets(new_targets: list[NewScrTarget] | None) -> tuple[li
             except Exception:
                 log.error(f"Failed to create target: {t}")
                 failed.append(t)
-        await s.flush()
+        await s.commit()
 
     return added, failed
 
@@ -111,6 +111,15 @@ def save_result(result: ScrTargetResult | None) -> str | None:
         return str(outdir)
 
 
+async def _mark_as_error(run: ttScrRunTable, message: str | None):
+    async with session() as s:
+        run.status = ScrapeStatus.failed
+        run.finished_at = datetime.now(UTC)
+        run.error_message = message
+        s.add(run)
+        await s.commit()
+
+
 async def run_scrape(
     target: ttScrTargetTable,
     stop_condition: asyncio.Event | None = None,
@@ -126,18 +135,16 @@ async def run_scrape(
         run.started_at = datetime.now(UTC)
         async with session() as s:
             s.add(run)
-            await s.flush()
+            await s.commit()
 
         try:
             config = ScrTargetConfig.model_validate(target.config)
 
-            match config.scrape_method:
-                case "firecrawl":
-                    assert config.firecrawl_conf
-                    result = await run_firecrawl(target.url, config.firecrawl_conf)
-                case "scrapling":
-                    assert config.scrapling_conf
-                    result = await run_scrapling(target.url, config.scrapling_conf)
+            match config.scraper:
+                case FirecrawlConfig() as scraper:
+                    result = await run_firecrawl(target.url, scraper)
+                case ScraplingConfig() as scraper:
+                    result = await run_scrapling(target.url, scraper)
                 case _:
                     raise ValueError("No scrape method provided")
 
@@ -158,16 +165,15 @@ async def run_scrape(
                 run.status = ScrapeStatus.success
                 run.finished_at = datetime.now(UTC)
                 s.add(run)
-                await s.flush()
+                await s.commit()
 
         except Exception as e:
             log.error(e)
-            async with session() as s:
-                run.status = ScrapeStatus.failed
-                run.finished_at = datetime.now(UTC)
-                run.error_message = str(e)
-                s.add(run)
-                await s.flush()
+            await _mark_as_error(run, str(e))
             return False
+        except BaseException as e:
+            log.error(e)
+            await _mark_as_error(run, str(e))
+            raise
 
     return True

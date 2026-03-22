@@ -7,9 +7,10 @@ import asyncio
 import logging
 import signal
 from logging import getLogger
+
 from conf import config
-from lib.get_due_targets import *
-from lib.run_scrape import *
+from lib.get_due_targets import get_due_targets
+from lib.run_scrape import run_scrape
 
 _shutdown = asyncio.Event()
 _semaphore = asyncio.Semaphore(5)
@@ -20,9 +21,11 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
 
+
 def _handle_sig():
     logger.info("shutdown signal recieved")
     _shutdown.set()
+
 
 ###
 #   scrape loop gathers resources with static algorythims,
@@ -37,6 +40,7 @@ def _handle_sig():
 #   result directly without spawning new targets.
 ###
 
+
 async def scrape_loop():
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
@@ -48,7 +52,9 @@ async def scrape_loop():
         try:
             targets = await get_due_targets()
             for t in targets:
-                task = asyncio.create_task(run_scrape(t, semaphore=_semaphore, stop_condition=_shutdown))
+                task = asyncio.create_task(
+                    run_scrape(t, semaphore=_semaphore, stop_condition=_shutdown)
+                )
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
         except Exception as e:
@@ -65,8 +71,10 @@ async def scrape_loop():
 
     logger.info("scrape_loop stopped")
 
+
 def main():
     asyncio.run(scrape_loop())
+
 
 if __name__ == "__main__":
     main()
