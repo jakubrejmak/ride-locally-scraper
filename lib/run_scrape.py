@@ -6,7 +6,6 @@ import asyncio
 import uuid
 from pathlib import Path
 from datetime import datetime, UTC
-from sqlalchemy import select, update, insert
 from db.schema import ttScrTargetTable, ttScrRunTable, ScrapeStatus
 from db.session import session
 from contextlib import nullcontext
@@ -101,7 +100,7 @@ def save_result(result: ScrTargetResult | None) -> str | None:
         file = Path(SCR_OUTPUT_DIR) / f"{uuid.uuid4().hex}.{result.data[0].ext}"
         with open(file, "wb") as f:
             f.write(result.data[0].bytes)
-        return str(file.absolute())
+        return str(file)
     else:
         outdir = Path(SCR_OUTPUT_DIR) / f"{uuid.uuid4().hex}"
         Path(outdir).mkdir(parents=True, exist_ok=True)
@@ -109,7 +108,7 @@ def save_result(result: ScrTargetResult | None) -> str | None:
             file = outdir / f"{uuid.uuid4().hex}.{d.ext}"
             with open(file, "wb") as f:
                 f.write(d.bytes)
-        return str(outdir.absolute())
+        return str(outdir)
 
 
 async def run_scrape(
@@ -123,6 +122,7 @@ async def run_scrape(
     async with semaphore or nullcontext():
         # create run row in ttScrRunTable and save the result into its output
         run = ttScrRunTable(target_id=target.id)
+        run.status = ScrapeStatus.pending
         run.started_at = datetime.now(UTC)
         async with session() as s:
             s.add(run)
