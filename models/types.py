@@ -43,9 +43,15 @@ class ScrTargetConfig(BaseModel):
         return self
 
 
+class ScrFileData(BaseModel):
+    mime: str
+    ext: str
+    bytes: Base64Bytes
+
+
 class ScrTargetResult(BaseModel):
     # list of content keyed by mime type
-    data: list[dict[str, Base64Bytes]]
+    data: list[ScrFileData]
 
 
 class NewScrTarget(BaseModel):

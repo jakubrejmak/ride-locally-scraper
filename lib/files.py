@@ -1,46 +1,32 @@
-from typing import Literal
 import magic
 import mimetypes
 import os
 
 
-def chck_type(
-    media: str | bytes,
-    method: Literal["from_url", "from_file", "from_path", "from_bytes"] = "from_path",
-    mime_opts: Literal["full", "ext_only", "none"] = "full",
-) -> str | None:
-    get_mime = True if mime_opts != "none" else False
+def _split_mime(mimetype: str) -> str:
+    return mimetype.split("/")[1]
 
-    if method == "from_bytes" and not isinstance(media, bytes):
-        raise ValueError(f"Method '{method}' not compatible with media type '{type(media)}'")
 
-    def strip_prefix(mimetype: str) -> str:
-        no_pfx = mimetype.split("/")[1]
-        return no_pfx
+def mime_from_bytes(data: bytes) -> tuple[str, str]:
+    full_mime = magic.from_buffer(data, mime=True)
+    return full_mime, _split_mime(full_mime)
 
-    match method:
-        case "from_file":
-            assert isinstance(media, str)
-            if not os.path.isfile(media):
-                raise ValueError(f"Method {method} expected a valid file, got: {media}")
-            ext = magic.from_file(media, mime=get_mime)
-        case "from_bytes":
-            assert isinstance(media, bytes)
-            ext = magic.from_buffer(media, mime=get_mime)
-        case "from_path":
-            assert isinstance(media, str)
-            ext = os.path.splitext(media)[1].lstrip(".")
-            if mime_opts == "full":
-                return mimetypes.guess_type(media)[0]
-            return ext or None
-        case "from_url":
-            assert isinstance(media, str)
-            path = media.split("?")[0]
-            ext = os.path.splitext(path)[1].lstrip(".")
-            if mime_opts == "full":
-                return mimetypes.guess_type(path)[0]
-            return ext or None
 
-    if mime_opts == "ext_only":
-        return strip_prefix(ext)
-    return ext
+def mime_from_file(path: str) -> tuple[str, str]:
+    if not os.path.isfile(path):
+        raise ValueError(f"Expected a valid file, got: {path}")
+    full_mime = magic.from_file(path, mime=True)
+    return full_mime, _split_mime(full_mime)
+
+
+def mime_from_path(path: str) -> tuple[str | None, str | None]:
+    full_mime = mimetypes.guess_type(path)[0]
+    ext = os.path.splitext(path)[1].lstrip(".") or None
+    return full_mime, ext
+
+
+def mime_from_url(url: str) -> tuple[str | None, str | None]:
+    path = url.split("?")[0]
+    full_mime = mimetypes.guess_type(path)[0]
+    ext = os.path.splitext(path)[1].lstrip(".") or None
+    return full_mime, ext
