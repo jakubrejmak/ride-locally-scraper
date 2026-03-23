@@ -6,15 +6,17 @@
 import asyncio
 import uuid
 from contextlib import nullcontext
+from logging import getLogger
 
 from sqlalchemy import select
 
 from db.schema import ttScrProcessedTable, ttScrRunTable, ttScrTargetTable
 from db.session import session
-from models.types import ScrTargetConfig
-from logging import getLogger
+from lib.processors.process_llm import llm_process_file
+from models.types import LLMProcessorConfig, ScrTargetConfig
 
 log = getLogger(__name__)
+
 
 async def _get_processor_config(target_id: int):
     async with session() as s:
@@ -39,7 +41,7 @@ async def try_get_existing(run: ttScrRunTable) -> ttScrProcessedTable:
                 o_filepath=uuid.uuid4(),
             )
             s.add(result)
-            await s.flush()
+            await s.commit()
     return result
 
 
@@ -53,7 +55,13 @@ async def process_file(
         return False
 
     async with semaphore or nullcontext():
-        run_to_process = await try_get_existing(run)
-        processor_config = _get_processor_config(run.target_id)
+        to_process = await try_get_existing(run)
+        config = await _get_processor_config(run.target_id)
+
+        match config:
+            case LLMProcessorConfig() as cfg:
+                result = await llm_process_file(to_process.o_filepath, cfg)
+            case _:
+                raise ValueError(f"Unknown processor method")
 
     return True

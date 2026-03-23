@@ -3,20 +3,25 @@
 ###
 
 import asyncio
-import uuid
-from pathlib import Path
-from datetime import datetime, UTC
-from db.schema import ttScrTargetTable, ttScrRunTable, ScrapeStatus
-from db.session import session
 from contextlib import nullcontext
-from models.types import ScrTargetConfig, ScrTargetResult, ScrScriptResult, NewScrTarget, FirecrawlConfig, ScraplingConfig
-from lib.scrapers.run_firecrawl import run_firecrawl
-from lib.scrapers.run_scrapling import run_scrapling
+from datetime import UTC, datetime
 from logging import getLogger
 
-log = getLogger(__file__)
+from db.schema import ScrapeStatus, ttScrRunTable, ttScrTargetTable
+from db.session import session
+from lib.files import save_result
+from lib.scrapers.run_firecrawl import run_firecrawl
+from lib.scrapers.run_scrapling import run_scrapling
+from models.types import (
+    FirecrawlConfig,
+    NewScrTarget,
+    ScraplingConfig,
+    ScrScriptResult,
+    ScrTargetConfig,
+    ScrTargetResult,
+)
 
-SCR_OUTPUT_DIR = Path(__file__).parent.parent / "output_files" / "o_scraper"
+log = getLogger(__file__)
 
 
 def new_target_to_row(new_target: NewScrTarget) -> ttScrTargetTable:
@@ -38,7 +43,9 @@ def new_target_to_row(new_target: NewScrTarget) -> ttScrTargetTable:
             )
         if hasattr(col.type, "length") and col.type.length and isinstance(val, str):  # type: ignore[union-attr]
             if len(val) > col.type.length:  # type: ignore[union-attr]
-                raise ValueError(f"Field '{field}': length {len(val)} exceeds max {col.type.length}")  # type: ignore[union-attr]
+                raise ValueError(
+                    f"Field '{field}': length {len(val)} exceeds max {col.type.length}"  # type: ignore[union-attr]
+                )
 
     return ttScrTargetTable(**data)
 
@@ -71,7 +78,9 @@ async def handle_self_update(
     return diff if diff else None
 
 
-async def handle_new_targets(new_targets: list[NewScrTarget] | None) -> tuple[list[NewScrTarget], list[NewScrTarget]]:
+async def handle_new_targets(
+    new_targets: list[NewScrTarget] | None,
+) -> tuple[list[NewScrTarget], list[NewScrTarget]]:
     if new_targets is None:
         return [], []
 
@@ -89,26 +98,6 @@ async def handle_new_targets(new_targets: list[NewScrTarget] | None) -> tuple[li
         await s.commit()
 
     return added, failed
-
-
-def save_result(result: ScrTargetResult | None) -> str | None:
-    SCR_OUTPUT_DIR.mkdir(exist_ok=True)
-
-    if result is None or len(result.data) < 1:
-        return None
-    elif len(result.data) == 1:
-        file = Path(SCR_OUTPUT_DIR) / f"{uuid.uuid4().hex}.{result.data[0].ext}"
-        with open(file, "wb") as f:
-            f.write(result.data[0].bytes)
-        return str(file)
-    else:
-        outdir = Path(SCR_OUTPUT_DIR) / f"{uuid.uuid4().hex}"
-        Path(outdir).mkdir(parents=True, exist_ok=True)
-        for d in result.data:
-            file = outdir / f"{uuid.uuid4().hex}.{d.ext}"
-            with open(file, "wb") as f:
-                f.write(d.bytes)
-        return str(outdir)
 
 
 async def _mark_as_error(run: ttScrRunTable, message: str | None):
@@ -150,16 +139,18 @@ async def run_scrape(
 
             if isinstance(result, ScrTargetResult):
                 # save the file and point the DB to its location
-                filepath = save_result(result)
-                run.o_filepath = filepath
+                if result:
+                    filepath = save_result(result)
+                    run.o_filepath = filepath
             elif isinstance(result, ScrScriptResult):
                 # modify current target
                 await handle_self_update(target, result.self_update)
                 # add new targets to session
                 await handle_new_targets(result.new_targets)
                 # save the file and point the DB to its location
-                filepath = save_result(result.run_result)
-                run.o_filepath = filepath
+                if result.run_result:
+                    filepath = save_result(result.run_result)
+                    run.o_filepath = filepath
 
             async with session() as s:
                 run.status = ScrapeStatus.success

@@ -36,16 +36,17 @@ class LLMProcessorConfig(BaseModel):
     process_method: Literal["llm"] = "llm"
     llm_model: SupportedLLMModels
     provider: Literal["gemini"]
+    system_prompt: Optional[dict[str, str]] = None
 
 
 class ScrTargetConfig(BaseModel):
     scraper: Annotated[
         FirecrawlConfig | ScraplingConfig, Field(discriminator="scrape_method")
     ]
-    processor: Optional[LLMProcessorConfig] = None
+    processor: Annotated[LLMProcessorConfig, Field(discriminator="process_method")]
 
 
-class ScrFileData(BaseModel):
+class FileData(BaseModel):
     mime: str
     ext: str
     bytes: Base64Bytes
@@ -53,7 +54,12 @@ class ScrFileData(BaseModel):
 
 class ScrTargetResult(BaseModel):
     # list of content keyed by mime type
-    data: list[ScrFileData]
+    data: list[FileData]
+
+
+class PcsRunResult(BaseModel):
+    # list of content keyed by mime type
+    data: list[FileData]
 
 
 class NewScrTarget(BaseModel):
