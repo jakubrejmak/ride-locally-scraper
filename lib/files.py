@@ -5,7 +5,8 @@ from pathlib import Path
 
 import magic
 
-from models.types import PcsRunResult, ScrTargetResult
+from conf import config
+from models.types import FileData, ProcessResult, ScrRunResult
 
 
 def _split_mime(mimetype: str) -> str:
@@ -37,26 +38,52 @@ def mime_from_url(url: str) -> tuple[str | None, str | None]:
     return full_mime, ext
 
 
-def save_result(result: ScrTargetResult | PcsRunResult) -> str | None:
-    SCR_OUTPUT_DIR = Path(__file__).parent.parent / "output_files" / "o_scraper"
-    PCS_OUTPUT_DIR = Path(__file__).parent.parent / "output_files" / "o_processor"
-    output_dir = (
-        SCR_OUTPUT_DIR if isinstance(result, ScrTargetResult) else PCS_OUTPUT_DIR
-    )
+def save_file_data(data: FileData, directory: str) -> str | None:
+    d = Path(directory)
+    d.mkdir(exist_ok=True)
+    file = d / f"{uuid.uuid4().hex}.{data.ext}"
+    with open(file, "wb") as f:
+        f.write(data.bytes)
+    return str(file)
 
-    output_dir.mkdir(exist_ok=True)
+
+def save_result(result: ProcessResult | ScrRunResult) -> str | None:
+    dir = (
+        config.PCS_OUTPUT_DIR
+        if isinstance(result, ProcessResult)
+        else config.SCR_OUTPUT_DIR
+    )
     if result is None or len(result.data) < 1:
         return None
     elif len(result.data) == 1:
-        file = output_dir / f"{uuid.uuid4().hex}.{result.data[0].ext}"
-        with open(file, "wb") as f:
-            f.write(result.data[0].bytes)
-        return str(file)
+        return save_file_data(result.data[0], dir)
     else:
-        nest_dir = output_dir / f"{uuid.uuid4().hex}"
-        Path(nest_dir).mkdir(parents=True, exist_ok=True)
+        nest_dir = Path(dir) / f"{uuid.uuid4().hex}"
+        Path(nest_dir).mkdir(exist_ok=True)
         for d in result.data:
-            file = nest_dir / f"{uuid.uuid4().hex}.{d.ext}"
-            with open(file, "wb") as f:
-                f.write(d.bytes)
+            save_file_data(d, str(nest_dir))
         return str(nest_dir)
+
+
+def read_file_data(filepath: str) -> FileData | None:
+    if not os.path.isfile(filepath):
+        return None
+    with open(filepath, "rb") as f:
+        data = f.read()
+    mime, ext = mime_from_file(filepath)
+    return FileData(mime=mime, ext=ext, bytes=data)
+
+
+def read_result(
+    filepath: str, type: type[ScrRunResult | ProcessResult]
+) -> ScrRunResult | ProcessResult | None:
+    if os.path.isfile(filepath):
+        file_data = read_file_data(filepath)
+        if file_data is None:
+            return None
+        return type(data=[file_data])
+    elif os.path.isdir(filepath):
+        files = [read_file_data(str(f)) for f in Path(filepath).iterdir() if f.is_file()]
+        data = [f for f in files if f is not None]
+        return type(data=data) if data else None
+    return None

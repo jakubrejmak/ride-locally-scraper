@@ -1,6 +1,6 @@
 import importlib.util
 import inspect
-from models.types import ScraplingConfig, ScrTargetResult, ScrScriptResult, ScrFileData
+from models.types import ScraplingConfig, ScrRunResult, ScrScriptResult, FileData
 from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
 from lib.files import mime_from_bytes
 
@@ -32,7 +32,7 @@ async def _execute_script(
 
 async def run_scrapling(
     url: str, config: ScraplingConfig
-) -> ScrTargetResult | ScrScriptResult | None:
+) -> ScrRunResult | ScrScriptResult | None:
     fetcher = FETCHERS[config.fetcher]
 
     def _fetch(fetcher, url: str):
@@ -40,7 +40,7 @@ async def run_scrapling(
             return fetcher.get(url)
         return fetcher.async_fetch(url)
 
-    result: ScrScriptResult | ScrTargetResult | None = None
+    result: ScrScriptResult | ScrRunResult | None = None
     if config.script_path and fetcher is not AsyncFetcher:
         # custom script path
         result = await _execute_script(fetcher, config.script_path, url)
@@ -57,6 +57,6 @@ async def run_scrapling(
         expected = config.force_mime
         if expected and expected != got_mime:
             raise ValueError(f"The forced mime type: '{expected}' is different than the type got: '{got_mime}'")
-        result = ScrTargetResult(data=[ScrFileData(mime=got_mime, ext=got_ext, bytes=page.body)])
+        result = ScrRunResult(data=[FileData(mime=got_mime, ext=got_ext, bytes=page.body)])
 
     return result

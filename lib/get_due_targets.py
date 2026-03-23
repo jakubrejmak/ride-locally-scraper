@@ -1,10 +1,12 @@
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
-from db.schema import ttScrTargetTable
-from croniter import croniter
 from datetime import datetime, timezone
+
+from croniter import croniter
+from sqlalchemy import select
+
 from conf import config
+from db.schema import ttScrTargetTable
 from db.session import session
+
 
 def is_due(schedule_cron: str | None, poll_interval: int) -> bool:
     if not schedule_cron:
@@ -18,7 +20,11 @@ def is_due(schedule_cron: str | None, poll_interval: int) -> bool:
 
 async def get_due_targets() -> list[ttScrTargetTable]:
     async with session() as s:
-        q = select(ttScrTargetTable).where(ttScrTargetTable.is_active).with_for_update(skip_locked=True)
+        q = (
+            select(ttScrTargetTable)
+            .where(ttScrTargetTable.is_active)
+            .with_for_update(skip_locked=True)
+        )
         res = await s.execute(q)
         active_targets: list[ttScrTargetTable] = list(res.scalars().all())
 

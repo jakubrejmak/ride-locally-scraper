@@ -18,7 +18,7 @@ from models.types import (
     ScraplingConfig,
     ScrScriptResult,
     ScrTargetConfig,
-    ScrTargetResult,
+    ScrRunResult,
 )
 
 log = getLogger(__file__)
@@ -137,7 +137,7 @@ async def run_scrape(
                 case _:
                     raise ValueError("No scrape method provided")
 
-            if isinstance(result, ScrTargetResult):
+            if isinstance(result, ScrRunResult):
                 # save the file and point the DB to its location
                 if result:
                     filepath = save_result(result)

@@ -43,7 +43,7 @@ class ScrTargetConfig(BaseModel):
     scraper: Annotated[
         FirecrawlConfig | ScraplingConfig, Field(discriminator="scrape_method")
     ]
-    processor: Annotated[LLMProcessorConfig, Field(discriminator="process_method")]
+    processor: Optional[Annotated[LLMProcessorConfig, Field(discriminator="process_method")]] = None
 
 
 class FileData(BaseModel):
@@ -52,13 +52,11 @@ class FileData(BaseModel):
     bytes: Base64Bytes
 
 
-class ScrTargetResult(BaseModel):
-    # list of content keyed by mime type
+class ScrRunResult(BaseModel):
     data: list[FileData]
 
 
-class PcsRunResult(BaseModel):
-    # list of content keyed by mime type
+class ProcessResult(BaseModel):
     data: list[FileData]
 
 
@@ -74,4 +72,4 @@ class NewScrTarget(BaseModel):
 class ScrScriptResult(BaseModel):
     new_targets: Optional[list[NewScrTarget]] = None  # scripts can add new targets
     self_update: Optional[NewScrTarget] = None  # fields to patch on current target row
-    run_result: Optional[ScrTargetResult] = None
+    run_result: Optional[ScrRunResult] = None
