@@ -2,11 +2,13 @@ import mimetypes
 import os
 import uuid
 from pathlib import Path
+from typing import TypeVar
 
 import magic
 
-from conf import config
 from models.types import FileData, ProcessResult, ScrRunResult
+
+TResult = TypeVar("TResult", ScrRunResult, ProcessResult)
 
 
 def _split_mime(mimetype: str) -> str:
@@ -40,26 +42,21 @@ def mime_from_url(url: str) -> tuple[str | None, str | None]:
 
 def save_file_data(data: FileData, directory: str) -> str | None:
     d = Path(directory)
-    d.mkdir(exist_ok=True)
+    d.mkdir(parents=True, exist_ok=True)
     file = d / f"{uuid.uuid4().hex}.{data.ext}"
     with open(file, "wb") as f:
         f.write(data.bytes)
     return str(file)
 
 
-def save_result(result: ProcessResult | ScrRunResult) -> str | None:
-    dir = (
-        config.PCS_OUTPUT_DIR
-        if isinstance(result, ProcessResult)
-        else config.SCR_OUTPUT_DIR
-    )
+def save_result(result: ProcessResult | ScrRunResult, directory: str) -> str | None:
     if result is None or len(result.data) < 1:
         return None
     elif len(result.data) == 1:
-        return save_file_data(result.data[0], dir)
+        return save_file_data(result.data[0], directory)
     else:
-        nest_dir = Path(dir) / f"{uuid.uuid4().hex}"
-        Path(nest_dir).mkdir(exist_ok=True)
+        nest_dir = Path(directory) / f"{uuid.uuid4().hex}"
+        nest_dir.mkdir(parents=True, exist_ok=True)
         for d in result.data:
             save_file_data(d, str(nest_dir))
         return str(nest_dir)
@@ -74,16 +71,14 @@ def read_file_data(filepath: str) -> FileData | None:
     return FileData(mime=mime, ext=ext, bytes=data)
 
 
-def read_result(
-    filepath: str, type: type[ScrRunResult | ProcessResult]
-) -> ScrRunResult | ProcessResult | None:
+def read_result(filepath: str, result_type: type[TResult]) -> TResult | None:
     if os.path.isfile(filepath):
         file_data = read_file_data(filepath)
         if file_data is None:
             return None
-        return type(data=[file_data])
+        return result_type(data=[file_data])
     elif os.path.isdir(filepath):
-        files = [read_file_data(str(f)) for f in Path(filepath).iterdir() if f.is_file()]
+        files = [read_file_data(str(f)) for f in sorted(Path(filepath).iterdir()) if f.is_file()]
         data = [f for f in files if f is not None]
-        return type(data=data) if data else None
+        return result_type(data=data) if data else None
     return None

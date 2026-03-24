@@ -1,6 +1,6 @@
 ###
 #   Processor module parses the output of scraping module by
-#   either static analisys or with the help of the llm
+#   either static analysis or with the help of the llm
 ###
 
 import asyncio
@@ -10,10 +10,12 @@ from logging import getLogger
 
 from sqlalchemy import select
 
+from conf import config
 from db.schema import ttScrProcessedTable, ttScrRunTable, ttScrTargetTable
 from db.session import session
+from lib.files import save_result
 from lib.processors.process_llm import llm_process_file
-from models.types import LLMProcessorConfig, ScrTargetConfig
+from models.types import LLMProcessorConfig, ProcessResult, ScrTargetConfig
 
 log = getLogger(__name__)
 
@@ -24,9 +26,9 @@ async def _get_processor_config(target_id: int):
         r = await s.execute(q)
         result = r.scalar_one()
 
-    config = ScrTargetConfig(**result.config)
+    target_config = ScrTargetConfig(**result.config)
 
-    return config.processor
+    return target_config.processor
 
 
 async def try_get_existing(run: ttScrRunTable) -> ttScrProcessedTable:
@@ -38,30 +40,49 @@ async def try_get_existing(run: ttScrRunTable) -> ttScrProcessedTable:
             result = ttScrProcessedTable(
                 run_id=run.id,
                 target_id=run.target_id,
-                o_filepath=uuid.uuid4(),
+                o_filepath=str(uuid.uuid4()),
             )
             s.add(result)
             await s.commit()
     return result
 
 
-async def process_file(
+async def run_process(
     run: ttScrRunTable,
     stop_condition: asyncio.Event | None = None,
     semaphore: asyncio.Semaphore | None = None,
 ) -> bool:
-    """Takes a ttScrRunTable rows, processes their output files and saves its result to ttScrProcessedTable"""
+    """Takes a ttScrRunTable row, processes its output file and saves the result to ttScrProcessedTable"""
     if stop_condition and stop_condition.is_set():
         return False
 
     async with semaphore or nullcontext():
         to_process = await try_get_existing(run)
-        config = await _get_processor_config(run.target_id)
+        processor_config = await _get_processor_config(run.target_id)
 
-        match config:
-            case LLMProcessorConfig() as cfg:
-                result = await llm_process_file(to_process.o_filepath, cfg)
-            case _:
-                raise ValueError(f"Unknown processor method")
+        try:
+            match processor_config:
+                case LLMProcessorConfig() as cfg:
+                    assert run.o_filepath is not None
+                    result = await llm_process_file(run.o_filepath, cfg)
+                case None:
+                    raise ValueError("No processor config found")
+                case _:
+                    raise ValueError("Unknown processor method")
+
+            if isinstance(result, ProcessResult):
+                filepath = save_result(result, config.PCS_OUTPUT_DIR)
+                if filepath:
+                    to_process.o_filepath = filepath
+                async with session() as s:
+                    s.add(to_process)
+                    await s.commit()
+
+        except Exception as e:
+            log.error(e)
+            return False
+        except BaseException as e:
+            log.error(e)
+            raise
 
     return True

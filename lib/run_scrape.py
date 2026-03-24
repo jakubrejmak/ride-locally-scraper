@@ -9,6 +9,7 @@ from logging import getLogger
 
 from db.schema import ScrapeStatus, ttScrRunTable, ttScrTargetTable
 from db.session import session
+from conf import config
 from lib.files import save_result
 from lib.scrapers.run_firecrawl import run_firecrawl
 from lib.scrapers.run_scrapling import run_scrapling
@@ -127,9 +128,9 @@ async def run_scrape(
             await s.commit()
 
         try:
-            config = ScrTargetConfig.model_validate(target.config)
+            target_config = ScrTargetConfig.model_validate(target.config)
 
-            match config.scraper:
+            match target_config.scraper:
                 case FirecrawlConfig() as scraper:
                     result = await run_firecrawl(target.url, scraper)
                 case ScraplingConfig() as scraper:
@@ -140,7 +141,7 @@ async def run_scrape(
             if isinstance(result, ScrRunResult):
                 # save the file and point the DB to its location
                 if result:
-                    filepath = save_result(result)
+                    filepath = save_result(result, config.SCR_OUTPUT_DIR)
                     run.o_filepath = filepath
             elif isinstance(result, ScrScriptResult):
                 # modify current target
@@ -149,7 +150,7 @@ async def run_scrape(
                 await handle_new_targets(result.new_targets)
                 # save the file and point the DB to its location
                 if result.run_result:
-                    filepath = save_result(result.run_result)
+                    filepath = save_result(result.run_result, config.SCR_OUTPUT_DIR)
                     run.o_filepath = filepath
 
             async with session() as s:

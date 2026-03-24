@@ -29,8 +29,7 @@ def _handle_sig():
 
 ###
 #   scrape loop gathers resources with static algorythims,
-#   while process loop is mostly llm domain. That means everything that
-#   leaves scraper will be treated as singular timetable
+#   while process loop is mostly llm domain
 #
 #   some targets are discovery targets — listing pages where the script
 #   finds N links (e.g. tender documents). since the processor handles
