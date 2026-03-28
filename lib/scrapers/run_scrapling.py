@@ -1,8 +1,11 @@
 import importlib.util
 import inspect
-from models.types import ScraplingConfig, ScrRunResult, ScrScriptResult, FileData
-from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
+
 from lib.files import mime_from_bytes
+from models.files import FileData, ScrRunResult
+from models.scrapers import ScraplingConfig
+from models.targets import ScrScriptResult
+from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
 
 FETCHERS = {
     "AsyncFetcher": AsyncFetcher,

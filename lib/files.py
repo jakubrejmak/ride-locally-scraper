@@ -6,9 +6,7 @@ from typing import TypeVar
 
 import magic
 
-from models.types import FileData, ProcessResult, ScrRunResult
-
-TResult = TypeVar("TResult", ScrRunResult, ProcessResult)
+from models.files import FileData, ProcessResult, ScrRunResult
 
 
 def _split_mime(mimetype: str) -> str:
@@ -49,7 +47,19 @@ def save_file_data(data: FileData, directory: str) -> str | None:
     return str(file)
 
 
-def save_result(result: ProcessResult | ScrRunResult, directory: str) -> str | None:
+def read_file_data(filepath: str) -> FileData | None:
+    if not os.path.isfile(filepath):
+        return None
+    with open(filepath, "rb") as f:
+        data = f.read()
+    mime, ext = mime_from_file(filepath)
+    return FileData(mime=mime, ext=ext, bytes=data)
+
+
+TResult = TypeVar("TResult", ScrRunResult, ProcessResult)
+
+
+def save_result(result: TResult, directory: str) -> str | None:
     if result is None or len(result.data) < 1:
         return None
     elif len(result.data) == 1:
@@ -62,15 +72,6 @@ def save_result(result: ProcessResult | ScrRunResult, directory: str) -> str | N
         return str(nest_dir)
 
 
-def read_file_data(filepath: str) -> FileData | None:
-    if not os.path.isfile(filepath):
-        return None
-    with open(filepath, "rb") as f:
-        data = f.read()
-    mime, ext = mime_from_file(filepath)
-    return FileData(mime=mime, ext=ext, bytes=data)
-
-
 def read_result(filepath: str, result_type: type[TResult]) -> TResult | None:
     if os.path.isfile(filepath):
         file_data = read_file_data(filepath)
@@ -78,7 +79,11 @@ def read_result(filepath: str, result_type: type[TResult]) -> TResult | None:
             return None
         return result_type(data=[file_data])
     elif os.path.isdir(filepath):
-        files = [read_file_data(str(f)) for f in sorted(Path(filepath).iterdir()) if f.is_file()]
+        files = [
+            read_file_data(str(f))
+            for f in sorted(Path(filepath).iterdir())
+            if f.is_file()
+        ]
         data = [f for f in files if f is not None]
         return result_type(data=data) if data else None
     return None

@@ -15,7 +15,9 @@ from db.schema import ttScrProcessedTable, ttScrRunTable, ttScrTargetTable
 from db.session import session
 from lib.files import save_result
 from lib.processors.process_llm import llm_process_file
-from models.types import LLMProcessorConfig, ProcessResult, ScrTargetConfig
+from models.files import ProcessResult
+from models.processors import LLMProcessorConfig
+from models.targets import ScrTargetConfig
 
 log = getLogger(__name__)
 

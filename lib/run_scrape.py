@@ -13,14 +13,9 @@ from conf import config
 from lib.files import save_result
 from lib.scrapers.run_firecrawl import run_firecrawl
 from lib.scrapers.run_scrapling import run_scrapling
-from models.types import (
-    FirecrawlConfig,
-    NewScrTarget,
-    ScraplingConfig,
-    ScrScriptResult,
-    ScrTargetConfig,
-    ScrRunResult,
-)
+from models.files import ScrRunResult
+from models.scrapers import FirecrawlConfig, ScraplingConfig
+from models.targets import NewScrTarget, ScrScriptResult, ScrTargetConfig
 
 log = getLogger(__file__)
 
