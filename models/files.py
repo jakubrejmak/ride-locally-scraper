@@ -1,3 +1,5 @@
+from typing import TypeAlias
+
 from pydantic import Base64Bytes, BaseModel
 
 
@@ -7,9 +9,10 @@ class FileData(BaseModel):
     bytes: Base64Bytes
 
 
-class ScrRunResult(BaseModel):
+class FileResult(BaseModel):
     data: list[FileData]
 
 
-class ProcessResult(BaseModel):
-    data: list[FileData]
+ScrRunResult: TypeAlias = FileResult
+PreprocessResult: TypeAlias = FileResult
+ProcessResult: TypeAlias = FileResult

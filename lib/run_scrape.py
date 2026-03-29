@@ -116,7 +116,7 @@ async def run_scrape(
     async with semaphore or nullcontext():
         # create run row in ttScrRunTable and save the result into its output
         run = ttScrRunTable(target_id=target.id)
-        run.status = ScrapeStatus.pending
+        run.status = ScrapeStatus.running
         run.started_at = datetime.now(UTC)
         async with session() as s:
             s.add(run)

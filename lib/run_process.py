@@ -5,46 +5,39 @@
 
 import asyncio
 from contextlib import nullcontext
+from datetime import UTC, datetime
 from logging import getLogger
 
 from sqlalchemy import select
 
 from conf import config
-from db.schema import ttScrProcessedTable, ttScrRunTable, ttScrTargetTable
+from db.schema import ProcessStatus, ttScrProcessedTable, ttScrRunTable
 from db.session import session
-from lib.files import save_result
+from lib.files import read_result, save_result
+from lib.processors.preprocess import preprocess_file
 from lib.processors.process_llm import llm_process_file
-from models.files import ProcessResult
+from lib.target_utils import get_target_config
+from models.files import ProcessResult, ScrRunResult
 from models.processors import LLMProcessorConfig
 
 log = getLogger(__name__)
 
 
-async def _get_existing_processed(run: ttScrRunTable) -> ttScrProcessedTable | None:
+async def _get_existing_processed(run_id: int) -> ttScrProcessedTable | None:
     async with session() as s:
-        q = select(ttScrProcessedTable).where(ttScrProcessedTable.run_id == run.id)
+        q = select(ttScrProcessedTable).where(ttScrProcessedTable.run_id == run_id)
         resp = await s.execute(q)
-        return resp.scalar_one_or_none()
+        result = resp.scalar_one_or_none()
+    return result
 
 
-async def _save_processed_output(run: ttScrRunTable, filepath: str) -> ttScrProcessedTable:
-    processed = await _get_existing_processed(run)
-    if processed is None:
-        processed = ttScrProcessedTable(
-            run_id=run.id,
-            target_id=run.target_id,
-            o_filepath=filepath,
-            version=1
-        )
-    else:
-        processed.o_filepath = filepath
-        processed.version += 1
-
+async def _mark_as_error(run: ttScrProcessedTable, message: str | None):
     async with session() as s:
-        s.add(processed)
+        run.status = ProcessStatus.failed
+        run.finished_at = datetime.now(UTC)
+        run.error_message = message
+        s.add(run)
         await s.commit()
-
-    return processed
 
 
 async def run_process(
@@ -56,21 +49,44 @@ async def run_process(
     if stop_condition and stop_condition.is_set():
         return False
 
+    if run.o_filepath is None:
+        raise ValueError(f"Scrape run: '{run.id}' has no output filepath to process")
+
     async with semaphore or nullcontext():
-        try:
+        # in contrast to allowing multiple runs per target there needs to be exactly one process per run, hence the get existing function
+        to_process = await _get_existing_processed(run.id)
+        if not to_process:
+            to_process = ttScrProcessedTable(
+                run_id=run.id,
+                target_id=run.target_id,
+                status=ProcessStatus.running,
+                o_filepath=None,
+                started_at=datetime.now(UTC),
+            )
             async with session() as s:
-                
-            target_config = await _get_target_config(run.target_id)
+                s.add(to_process)
+                await s.commit()
 
+        try:
+            target_config = await get_target_config(run.target_id)
+            scr_result = read_result(run.o_filepath, ScrRunResult)
+            if not scr_result:
+                raise Exception(
+                    f"read_result could not read valid result data from path: '{run.o_filepath}'"
+                )
+
+            # if preprocessor is configured, run it to transform scr_result before feeding to actual processor
             if target_config.preprocessor is not None:
-                raise NotImplementedError("Preprocessor pipeline is not implemented yet")
+                scr_result = await preprocess_file(
+                    scr_result, target_config.preprocessor
+                )
+                if not scr_result:
+                    raise Exception("Preprocessor could not produce valid result data")
 
-            if run.o_filepath is None:
-                raise ValueError("Scrape run has no output filepath to process")
-
+            # process scr_result into statically parseable output
             match target_config.processor:
                 case LLMProcessorConfig() as cfg:
-                    result = await llm_process_file(run.o_filepath, cfg)
+                    result = await llm_process_file(scr_result, cfg)
                 case None:
                     raise ValueError("No processor config found")
                 case _:
@@ -83,13 +99,18 @@ async def run_process(
             if not filepath:
                 raise ValueError("Processor result did not produce any output files")
 
-            await _save_processed_output(run, filepath)
+            async with session() as s:
+                to_process.finished_at = datetime.now(UTC)
+                to_process.o_filepath = filepath
+                await s.commit()
 
         except Exception as e:
             log.error(e)
+            await _mark_as_error(to_process, str(e))
             return False
         except BaseException as e:
             log.error(e)
+            await _mark_as_error(to_process, str(e))
             raise
 
     return True

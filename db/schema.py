@@ -1,3 +1,4 @@
+from typing import TypeAlias
 import enum
 from datetime import datetime
 
@@ -18,11 +19,15 @@ class Base(DeclarativeBase):
     pass
 
 
-class ScrapeStatus(enum.Enum):
+class Status(enum.Enum):
     pending = "pending"
     running = "running"
     success = "success"
     failed = "failed"
+
+
+ScrapeStatus: TypeAlias = Status
+ProcessStatus: TypeAlias = Status
 
 
 class ttScrTargetTable(Base):
@@ -75,6 +80,11 @@ class ttScrProcessedTable(Base):
     )
     target_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("scr_targets.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[ProcessStatus] = mapped_column(
+        Enum(ProcessStatus, name="process_status"),
+        nullable=False,
+        default=ProcessStatus.pending,
     )
     o_filepath: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
