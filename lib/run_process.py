@@ -4,7 +4,6 @@
 ###
 
 import asyncio
-import uuid
 from contextlib import nullcontext
 from logging import getLogger
 
@@ -17,36 +16,35 @@ from lib.files import save_result
 from lib.processors.process_llm import llm_process_file
 from models.files import ProcessResult
 from models.processors import LLMProcessorConfig
-from models.targets import ScrTargetConfig
 
 log = getLogger(__name__)
 
 
-async def _get_processor_config(target_id: int):
-    async with session() as s:
-        q = select(ttScrTargetTable).where(ttScrTargetTable.id == target_id)
-        r = await s.execute(q)
-        result = r.scalar_one()
-
-    target_config = ScrTargetConfig(**result.config)
-
-    return target_config.processor
-
-
-async def try_get_existing(run: ttScrRunTable) -> ttScrProcessedTable:
+async def _get_existing_processed(run: ttScrRunTable) -> ttScrProcessedTable | None:
     async with session() as s:
         q = select(ttScrProcessedTable).where(ttScrProcessedTable.run_id == run.id)
         resp = await s.execute(q)
-        result = resp.scalar_one_or_none()
-        if not result:
-            result = ttScrProcessedTable(
-                run_id=run.id,
-                target_id=run.target_id,
-                o_filepath=str(uuid.uuid4()),
-            )
-            s.add(result)
-            await s.commit()
-    return result
+        return resp.scalar_one_or_none()
+
+
+async def _save_processed_output(run: ttScrRunTable, filepath: str) -> ttScrProcessedTable:
+    processed = await _get_existing_processed(run)
+    if processed is None:
+        processed = ttScrProcessedTable(
+            run_id=run.id,
+            target_id=run.target_id,
+            o_filepath=filepath,
+            version=1
+        )
+    else:
+        processed.o_filepath = filepath
+        processed.version += 1
+
+    async with session() as s:
+        s.add(processed)
+        await s.commit()
+
+    return processed
 
 
 async def run_process(
@@ -59,26 +57,33 @@ async def run_process(
         return False
 
     async with semaphore or nullcontext():
-        to_process = await try_get_existing(run)
-        processor_config = await _get_processor_config(run.target_id)
-
         try:
-            match processor_config:
+            async with session() as s:
+                
+            target_config = await _get_target_config(run.target_id)
+
+            if target_config.preprocessor is not None:
+                raise NotImplementedError("Preprocessor pipeline is not implemented yet")
+
+            if run.o_filepath is None:
+                raise ValueError("Scrape run has no output filepath to process")
+
+            match target_config.processor:
                 case LLMProcessorConfig() as cfg:
-                    assert run.o_filepath is not None
                     result = await llm_process_file(run.o_filepath, cfg)
                 case None:
                     raise ValueError("No processor config found")
                 case _:
                     raise ValueError("Unknown processor method")
 
-            if isinstance(result, ProcessResult):
-                filepath = save_result(result, config.PCS_OUTPUT_DIR)
-                if filepath:
-                    to_process.o_filepath = filepath
-                async with session() as s:
-                    s.add(to_process)
-                    await s.commit()
+            if not isinstance(result, ProcessResult):
+                raise ValueError("Processor did not return a valid ProcessResult")
+
+            filepath = save_result(result, config.PCS_OUTPUT_DIR)
+            if not filepath:
+                raise ValueError("Processor result did not produce any output files")
+
+            await _save_processed_output(run, filepath)
 
         except Exception as e:
             log.error(e)

@@ -1,3 +1,5 @@
+import importlib
+
 from lib.files import read_result
 from models.files import ProcessResult, ScrRunResult
 from models.processors import (
@@ -5,6 +7,12 @@ from models.processors import (
     LLMProcessorConfig,
     OpenRouterProviderConfig,
 )
+
+
+PROCESSORS = {
+    GeminiProviderConfig: "process_gemini",
+    OpenRouterProviderConfig: "process_openrouter",
+}
 
 
 async def llm_process_file(
@@ -17,20 +25,17 @@ async def llm_process_file(
     if not input:
         raise ValueError(f"Failed to read input from {filepath}")
 
-    match processor_config.config:
-        # provider specific SDK modules inside, hence lazy imports
-        case OpenRouterProviderConfig() as cfg:
-            from lib.processors.process_openrouter import process_openrouter
+    target_processor = PROCESSORS.get(type(processor_config.config))
+    if not target_processor:
+        raise ValueError(f"LLM config type: '{type(processor_config.config).__name__}' not supported")
 
-            results = ProcessResult(data=[])
-            for r in input.data:
-                pr = await process_openrouter(r, cfg)
-                results.data.append(pr)
-        case GeminiProviderConfig() as cfg:
-            from processors.process_gemini import process_gemini
+    module = importlib.import_module(f"lib.processors.{target_processor}")
+    process_func = getattr(module, target_processor)
+    cfg = processor_config.config
 
-            results = ProcessResult(data=[])
-            for r in input.data:
-                results.data.append(await process_gemini(r, cfg))
-        case _:
-            raise ValueError(f"LLM config path not supported")
+    results = ProcessResult(data=[])
+    for r in input.data:
+        pr = await process_func(r, cfg)
+        if not pr:
+            raise Exception(f"Failed to process file: {filepath}")
+        results.data.append(pr)

@@ -78,6 +78,9 @@ class ttScrProcessedTable(Base):
     )
     o_filepath: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column()
+    finished_at: Mapped[datetime | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.now()
     )

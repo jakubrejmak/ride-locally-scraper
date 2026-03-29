@@ -6,6 +6,7 @@ from sqlalchemy import select
 from conf import config
 from db.schema import ttScrTargetTable
 from db.session import session
+from models.targets import ScrTargetConfig
 
 
 def is_due(schedule_cron: str | None, poll_interval: int) -> bool:
@@ -34,3 +35,12 @@ async def get_due_targets() -> list[ttScrTargetTable]:
                 due_targets.append(t)
 
     return due_targets
+
+
+async def get_target_config(target_id: int) -> ScrTargetConfig:
+    async with session() as s:
+        q = select(ttScrTargetTable).where(ttScrTargetTable.id == target_id)
+        r = await s.execute(q)
+        result = r.scalar_one()
+
+    return ScrTargetConfig.model_validate(result.config)

@@ -9,7 +9,7 @@ import signal
 from logging import getLogger
 
 from conf import config
-from lib.get_due_targets import get_due_targets
+from lib.target_utils import get_due_targets
 from lib.run_scrape import run_scrape
 
 _shutdown = asyncio.Event()
@@ -57,7 +57,7 @@ async def scrape_loop():
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
         except Exception as e:
-            logger.exception("scrape_loop error")
+            logger.exception(f"scrape_loop error: {e}")
         finally:
             try:
                 await asyncio.wait_for(_shutdown.wait(), config.SRC_T_POLL_INTERVAL)
