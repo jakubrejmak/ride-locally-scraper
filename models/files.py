@@ -14,5 +14,4 @@ class FileResult(BaseModel):
 
 
 ScrRunResult: TypeAlias = FileResult
-PreprocessResult: TypeAlias = FileResult
 ProcessResult: TypeAlias = FileResult

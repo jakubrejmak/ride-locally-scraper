@@ -11,6 +11,7 @@ class Config:
     SRC_T_POLL_INTERVAL: int
     SCR_OUTPUT_DIR = "output_files/o_scraper"
     PCS_OUTPUT_DIR = "output_files/o_processor"
+    OPENROUTER_API_KEY: str
 
     def __init__(self):
         for key, type_ in get_type_hints(self).items():

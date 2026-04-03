@@ -31,6 +31,25 @@ async def _get_existing_processed(run_id: int) -> ttScrProcessedTable | None:
     return result
 
 
+async def _get_process_row(run: ttScrRunTable) -> ttScrProcessedTable:
+    to_process = await _get_existing_processed(run.id)
+    if not to_process:
+        to_process = ttScrProcessedTable(
+            run_id=run.id,
+            target_id=run.target_id,
+            o_filepath=None,
+            started_at=datetime.now(UTC),
+        )
+
+    to_process.status = ProcessStatus.running
+
+    async with session() as s:
+        s.add(to_process)
+        await s.commit()
+
+    return to_process
+
+
 async def _mark_as_error(run: ttScrProcessedTable, message: str | None):
     async with session() as s:
         run.status = ProcessStatus.failed
@@ -54,18 +73,7 @@ async def run_process(
 
     async with semaphore or nullcontext():
         # in contrast to allowing multiple runs per target there needs to be exactly one process per run, hence the get existing function
-        to_process = await _get_existing_processed(run.id)
-        if not to_process:
-            to_process = ttScrProcessedTable(
-                run_id=run.id,
-                target_id=run.target_id,
-                status=ProcessStatus.running,
-                o_filepath=None,
-                started_at=datetime.now(UTC),
-            )
-            async with session() as s:
-                s.add(to_process)
-                await s.commit()
+        to_process = await _get_process_row(run)
 
         try:
             target_config = await get_target_config(run.target_id)
@@ -100,6 +108,7 @@ async def run_process(
                 raise ValueError("Processor result did not produce any output files")
 
             async with session() as s:
+                to_process.status = ProcessStatus.success
                 to_process.finished_at = datetime.now(UTC)
                 to_process.o_filepath = filepath
                 await s.commit()
