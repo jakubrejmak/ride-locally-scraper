@@ -1,0 +1,70 @@
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "timetable_regions_extraction",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "properties": {
+        "regions": {
+          "type": "array",
+          "description": "List of distinct visual regions identified in the timetable.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "time_grid",
+                  "stop_names",
+                  "header",
+                  "footer",
+                  "other"
+                ],
+                "description": "The category of the region. There can be multiple regions of the same type (e.g., two time_grids)."
+              },
+              "top": {
+                "type": "integer",
+                "description": "Distance from the top of the image to the top edge of the box (0-1000)."
+              },
+              "left": {
+                "type": "integer",
+                "description": "Distance from the left of the image to the left edge of the box (0-1000)."
+              },
+              "bottom": {
+                "type": "integer",
+                "description": "Distance from the top of the image to the bottom edge of the box (0-1000)."
+              },
+              "right": {
+                "type": "integer",
+                "description": "Distance from the left of the image to the right edge of the box (0-1000)."
+              },
+              "text_sample": {
+                "type": "string",
+                "description": "A short, exact text snippet read from inside this region."
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of the region if type is 'other'. Otherwise, use an empty string."
+              }
+            },
+            "required": [
+              "type",
+              "top",
+              "left",
+              "bottom",
+              "right",
+              "text_sample",
+              "description"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "regions"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

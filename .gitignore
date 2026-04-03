@@ -3,3 +3,4 @@ venv
 .env
 scrapling_scripts
 processor_prompts
+preprocessor_prompts

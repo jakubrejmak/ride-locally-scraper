@@ -66,7 +66,11 @@ async def _get_region_descriptions(data, cfg):
 
     content = response.choices[0].message.content
 
-    return content
+    return str(content)
+
+
+def _parse_region_descriptions(region_description: str):
+    pass
 
 
 async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
@@ -78,5 +82,6 @@ async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
         raise ValueError(f"Script '{__name__}' needs a script config")
 
     llm_region_descriptions = await _get_region_descriptions(data, script_config)
+    region_data = _parse_region_descriptions(llm_region_descriptions)
 
     return input
