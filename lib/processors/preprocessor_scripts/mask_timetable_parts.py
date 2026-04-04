@@ -20,6 +20,7 @@ import openrouter
 
 from conf import config
 from models.files import ScrRunResult
+from models.preprocessors import TimetableRegions, to_openrouter_schema
 
 
 def _get_img_data_url(data: bytes, mime: str) -> str:
@@ -48,6 +49,7 @@ def build_messages(*transformers: MessageTransformer) -> Messages:
 
 
 async def _get_region_descriptions(data, cfg):
+    # outputs the region descriptions of the image in a structured json using structured response
     model = cfg.get("llm_model")
     system_prompt = cfg.get("system_prompt")
 
@@ -57,31 +59,40 @@ async def _get_region_descriptions(data, cfg):
         )
 
     image_url = _get_img_data_url(data.bytes, data.mime)
-    messages = build_messages(
-        _add_message("system", system_prompt),
-        _add_message("user", image_url, "image_url"),
-    )
+    payload = {
+        "model": model,
+        "messages": build_messages(
+            _add_message("system", system_prompt),
+            _add_message("user", image_url, "image_url"),
+        ),
+        "reasoning": {"effort": "none"},
+        "response_format": to_openrouter_schema(TimetableRegions),
+    }
+
     async with openrouter.OpenRouter(api_key=config.OPENROUTER_API_KEY) as client:
-        response = await client.chat.send_async(model=model, messages=messages)  # type: ignore[arg-type]
+        response = await client.chat.send_async(**payload)
 
     content = response.choices[0].message.content
+    if not isinstance(content, str):
+        return None
 
-    return str(content)
-
-
-def _parse_region_descriptions(region_description: str):
-    pass
+    return TimetableRegions.model_validate_json(content)
 
 
 async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
     data = input.data[0]
+
     if "image/" not in data.mime:
         raise ValueError("Input data is not an image")
+
     script_config = kwargs.get("script_config")
     if not script_config:
         raise ValueError(f"Script '{__name__}' needs a script config")
 
-    llm_region_descriptions = await _get_region_descriptions(data, script_config)
-    region_data = _parse_region_descriptions(llm_region_descriptions)
+    region_data = await _get_region_descriptions(data, script_config)
+    if not region_data:
+        return None
+
+
 
     return input
