@@ -94,16 +94,21 @@ async def run_process(
             # process scr_result into statically parseable output
             match target_config.processor:
                 case LLMProcessorConfig() as cfg:
-                    result = await llm_process_file(scr_result, cfg)
+                    results = ProcessResult(data=[])
+                    for file in scr_result.data:
+                        result = await llm_process_file(file, cfg)
+                        if not result:
+                            raise Exception("LLM processor could not produce valid result data")
+                        results.data.append(result)
                 case None:
                     raise ValueError("No processor config found")
                 case _:
                     raise ValueError("Unknown processor method")
 
-            if not isinstance(result, ProcessResult):
+            if not isinstance(results, ProcessResult):
                 raise ValueError("Processor did not return a valid ProcessResult")
 
-            filepath = save_result(result, config.PCS_OUTPUT_DIR)
+            filepath = save_result(results, config.PCS_OUTPUT_DIR)
             if not filepath:
                 raise ValueError("Processor result did not produce any output files")
 

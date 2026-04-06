@@ -1,6 +1,6 @@
 import importlib
 
-from models.files import ProcessResult, ScrRunResult
+from models.files import FileData, ProcessResult, ScrRunResult
 from models.processors import (
     GeminiProviderConfig,
     LLMProcessorConfig,
@@ -15,8 +15,8 @@ PROCESSORS = {
 
 
 async def llm_process_file(
-    input: ScrRunResult, processor_config: LLMProcessorConfig
-) -> ProcessResult | None:
+    input: FileData, processor_config: LLMProcessorConfig
+) -> FileData | None:
     target_processor = PROCESSORS.get(type(processor_config.config))
     if not target_processor:
         raise ValueError(f"LLM config type: '{type(processor_config.config).__name__}' not supported")
