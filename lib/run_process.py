@@ -15,7 +15,7 @@ from db.schema import ProcessStatus, ttScrProcessedTable, ttScrRunTable
 from db.session import session
 from lib.files import read_result, save_result
 from lib.processors.preprocess import preprocess_file
-from lib.processors.process_llm import llm_process_file
+from lib.processors.process_llm import llm_process_files
 from lib.target_utils import get_target_config
 from models.files import ProcessResult, ScrRunResult
 from models.processors import LLMProcessorConfig
@@ -94,12 +94,7 @@ async def run_process(
             # process scr_result into statically parseable output
             match target_config.processor:
                 case LLMProcessorConfig() as cfg:
-                    results = ProcessResult(data=[])
-                    for file in scr_result.data:
-                        result = await llm_process_file(file, cfg)
-                        if not result:
-                            raise Exception("LLM processor could not produce valid result data")
-                        results.data.append(result)
+                    results = await llm_process_files(scr_result, cfg)
                 case None:
                     raise ValueError("No processor config found")
                 case _:

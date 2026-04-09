@@ -19,7 +19,7 @@ class Region(BaseModel):
         description="Short, exact text snippet read from inside this region"
     )
     description: str = Field(
-        default="", description="Description of the region if type is 'other'"
+        default="", description="Description of the region contents"
     )
 
 
@@ -27,29 +27,6 @@ class TimetableRegions(BaseModel):
     """Collection of visual regions identified in a timetable."""
 
     regions: list[Region]
-
-
-def to_openrouter_schema(model: type[BaseModel]) -> dict:
-    """
-    Convert a Pydantic model to OpenRouter's response_format schema.
-
-    The returned dict can be passed directly to client.chat.send_async(...)
-    as the response_format parameter.
-
-    Args:
-        model: A Pydantic BaseModel subclass
-
-    Returns:
-        Dict in OpenRouter's json_schema format
-    """
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": model.__name__,
-            "strict": True,
-            "schema": model.model_json_schema(),
-        },
-    }
 
 
 class PreprocessorTool(BaseModel):

@@ -12,42 +12,14 @@
 #    route direction (each part has to have metadata + stop list + stop times)
 ###
 
-import base64
-from functools import reduce
-from typing import Callable
-
 import openrouter
 from visual.mask_image import compose_from_squares, mask_jpeg_img, region_to_square
 from visual.pdf import pdf_to_jpg
 
 from conf import config
+from lib.llm.openrouter_utils import OpenRouterUtils as utils
 from models.files import FileData, ScrRunResult
-from models.preprocessors import Region, TimetableRegions, to_openrouter_schema
-
-
-def _get_img_data_url(data: bytes, mime: str) -> str:
-    return f"data:{mime};base64,{base64.b64encode(data).decode()}"
-
-
-Messages = list[dict]
-MessageTransformer = Callable[[Messages], Messages]
-
-
-def _add_message(
-    role: str, content: str, content_type: str | None = None
-) -> MessageTransformer:
-    match content_type:
-        case "text":
-            formatted = [{"type": "text", "text": content}]
-        case "image_url":
-            formatted = [{"type": "image_url", "image_url": {"url": content}}]
-        case _:
-            formatted = content  # type: ignore[assignment]
-    return lambda msgs: [*msgs, {"role": role, "content": formatted}]
-
-
-def build_messages(*transformers: MessageTransformer) -> Messages:
-    return reduce(lambda msgs, t: t(msgs), transformers, [])
+from models.preprocessors import TimetableRegions
 
 
 def _check_regions_valid(regions: TimetableRegions) -> None:
@@ -64,15 +36,15 @@ async def _get_region_descriptions(data: bytes, cfg):
     if not model or not system_prompt:
         raise ValueError(f"Script needs 'llm_model' and 'system_prompt' configured")
 
-    image_url = _get_img_data_url(data, "image/jpeg")
+    image_url = utils._get_img_data_url(data, "image/jpeg")
     payload = {
         "model": model,
-        "messages": build_messages(
-            _add_message("system", system_prompt),
-            _add_message("user", image_url, "image_url"),
+        "messages": utils.build_messages(
+            utils._add_message("system", system_prompt),
+            utils._add_message("user", image_url, "image_url"),
         ),
         "reasoning": {"effort": "none"},
-        "response_format": to_openrouter_schema(TimetableRegions),
+        "response_format": utils.to_response_format_schema(TimetableRegions),
     }
 
     async with openrouter.OpenRouter(api_key=config.OPENROUTER_API_KEY) as client:
@@ -153,6 +125,7 @@ def _compose_timetable_for_direction(
                 mime="image/jpeg",
                 ext="jpg",
                 bytes=composed_bytes,
+                description=time_grid.description,
             )
         )
 

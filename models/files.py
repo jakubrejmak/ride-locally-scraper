@@ -7,6 +7,7 @@ class FileData(BaseModel):
     mime: str
     ext: str
     bytes: Base64Bytes
+    description: str | None = None
 
 
 class FileResult(BaseModel):
