@@ -87,3 +87,8 @@ def read_result(filepath: str, result_type: type[TResult]) -> TResult | None:
         data = [f for f in files if f is not None]
         return result_type(data=data) if data else None
     return None
+
+
+def enforce_same_mime(file_data: list[FileData]) -> list[FileData]:
+    first_mime = file_data[0].mime
+    return [f for f in file_data if f.mime == first_mime]

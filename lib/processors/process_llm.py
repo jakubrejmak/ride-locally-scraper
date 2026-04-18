@@ -53,6 +53,7 @@ async def llm_process_files(
 
     results = ProcessResult(data=[])
     for f in input.data:
+        # usually preprocess will run deskew on document, then extract each self contained route direction
         result = await process_func(f, cfg)
         if not result:
             raise ValueError(f"LLM processor could not produce valid result")

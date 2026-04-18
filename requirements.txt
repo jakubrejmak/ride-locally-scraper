@@ -5,3 +5,5 @@ croniter
 pydantic
 xlrd
 python-magic
+numpy
+deskew

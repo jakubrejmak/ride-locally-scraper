@@ -12,6 +12,8 @@
 #    route direction (each part has to have metadata + stop list + stop times)
 ###
 
+from logging import getLogger
+
 import openrouter
 from visual.mask_image import compose_from_squares, mask_jpeg_img, region_to_square
 from visual.pdf import pdf_to_jpg
@@ -19,16 +21,41 @@ from visual.pdf import pdf_to_jpg
 from conf import config
 from lib.llm.openrouter_utils import OpenRouterUtils as utils
 from models.files import FileData, ScrRunResult
-from models.preprocessors import TimetableRegions
+from models.preprocessors import Region, TimetableRegions
+
+log = getLogger(__name__)
 
 
-def _check_regions_valid(regions: TimetableRegions) -> None:
-    time_grids = getattr(regions, "time_grids", None)
-    if time_grids is None or len(time_grids) < 2:
-        raise ValueError("Timetable must contain at least 2 time grids")
+# def _check_regions_valid(regions: TimetableRegions) -> None:
+#     """Validate that a TimetableRegions object has sufficient time grids.
+
+#     Args:
+#         regions: TimetableRegions object to validate
+
+#     Raises:
+#         ValueError: If time_grids is missing or has fewer than 2 entries
+#     """
+#     time_grids = getattr(regions, "time_grids", None)
+#     if time_grids is None or len(time_grids) < 2:
+#         raise ValueError("Timetable must contain at least 2 time grids")
 
 
 async def _get_region_descriptions(data: bytes, cfg):
+    """Extract region descriptions from a timetable image using LLM.
+
+    Sends the image to an LLM with structured output to identify and describe
+    meaningful regions (header, footer, stop_names, time_grids, other).
+
+    Args:
+        data: JPEG image bytes of a timetable page
+        cfg: Script configuration containing 'llm_model' and 'system_prompt'
+
+    Returns:
+        TimetableRegions object with validated region descriptions, or None on parse failure
+
+    Raises:
+        ValueError: If required config values are missing
+    """
     # outputs the region descriptions of the image in a structured json using structured response
     model = cfg.get("llm_model")
     system_prompt = cfg.get("system_prompt")
@@ -55,87 +82,94 @@ async def _get_region_descriptions(data: bytes, cfg):
         return None
 
     regions = TimetableRegions.model_validate_json(content)
-    _check_regions_valid(regions)
 
     return regions
 
 
-def _mask_timetable_for_direction(
-    data: bytes, region_data: TimetableRegions
-) -> list[FileData]:
-    """Create masked images for each time_grid direction."""
-    regions = region_data.regions
-    time_grids = [r for r in regions if r.type == "time_grid"]
-    header = next((r for r in regions if r.type == "header"), None)
-    footer = next((r for r in regions if r.type == "footer"), None)
-    stop_names = next((r for r in regions if r.type == "stop_names"), None)
-    other_regions = [r for r in regions if r.type == "other"]
+def _validate_region_data(region_data: dict[bytes, TimetableRegions | None]):
+    """Check region_data is valid:
+    - every image has one or two time_grid regions
+    - every region type (footer, header, stop_names) has one region
+    """
+    REQUIRED_REGION_COUNTS = {
+        "1": ["footer", "header", "stop_names"],
+        "1-2": ["time_grid"],
+    }
+    # build region type -> count in region_data map
+    regions_by_type: dict[str, int] = {}  # type -> type count in region_data
+    for tt_region in region_data.values():
+        if not tt_region:
+            continue
+        for region in tt_region.regions:
+            regions_by_type[region.type] = regions_by_type.get(region.type, 0) + 1
 
-    if not header or not footer or not stop_names:
-        raise ValueError(
-            "Timetable must contain header, footer, and stop_names regions"
-        )
+    def _cmp_int(rule: str, value: int) -> bool:
+        """Supports operators:
+        `-` range
+        `no special chars in rule` exact match
+        """
+        if "-" in rule:
+            parts = rule.split("-")
+            if len(parts) == 2:
+                min_val, max_val = parts
+                return int(min_val) <= value <= int(max_val)
+        else:
+            return value == int(rule)
+        return False
 
-    output_data: list[FileData] = []
-    for time_grid in time_grids:
-        masked_bytes = data
-        # mask all regions except the ones we're keeping
-        regions_to_keep = [header, footer, stop_names, time_grid, *other_regions]
-        regions_to_mask = [r for r in regions if r not in regions_to_keep]
+    # validate against the REQUIRED_REGION_COUNTS map
+    for k, v in regions_by_type.items():
+        for rule, types in REQUIRED_REGION_COUNTS.items():
+            if k in types:
+                res = _cmp_int(rule, v)
+                if res:
+                    return {"ok": True, "err": None}
+                else:
+                    return {
+                        "ok": False,
+                        "err": f"Type {type} failed validation against rule {rule}",
+                    }
 
-        for region in regions_to_mask:
-            square = region_to_square(region)
-            masked_bytes = mask_jpeg_img(masked_bytes, square)
-
-        output_data.append(
-            FileData(
-                mime="image/jpeg",
-                ext="jpg",
-                bytes=masked_bytes,
-            )
-        )
-
-    return output_data
+    return {"ok": False, "err": "Required region types not found in region_data"}
 
 
 def _compose_timetable_for_direction(
-    data: bytes, region_data: TimetableRegions
+    region_data: dict[bytes, TimetableRegions | None],
 ) -> list[FileData]:
-    """Compose images for each time_grid direction using cut and paste."""
-    regions = region_data.regions
-    time_grids = [r for r in regions if r.type == "time_grid"]
-    header = next((r for r in regions if r.type == "header"), None)
-    footer = next((r for r in regions if r.type == "footer"), None)
-    stop_names = next((r for r in regions if r.type == "stop_names"), None)
-    other_regions = [r for r in regions if r.type == "other"]
-
-    if not header or not footer or not stop_names:
-        raise ValueError(
-            "Timetable must contain header, footer, and stop_names regions"
-        )
-
+    """Compose images for each time_grid direction using cut-and-paste.
+    Takes list of image bytes and region_data dict.
+    Region data is keyed like so:
+    image bytes -> `region_data` describing it
+    """
     output_data: list[FileData] = []
-    for time_grid in time_grids:
-        kept_regions = [header, footer, stop_names, time_grid, *other_regions]
-        squares = [region_to_square(r) for r in kept_regions]
-        composed_bytes = compose_from_squares(data, squares)
 
-        output_data.append(
-            FileData(
-                mime="image/jpeg",
-                ext="jpg",
-                bytes=composed_bytes,
-                description=time_grid.description,
-            )
-        )
+    res = _validate_region_data(region_data)
+    if not res["ok"]:
+        raise Exception(f"Invalid region data: {res['err']}")
 
     return output_data
 
 
 async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
+    """Process a timetable document and extract route directions as separate images.
+
+    Accepts a PDF or JPEG timetable, uses an LLM to identify region bounding boxes
+    (header, footer, stop_names, time_grids, other), then composes individual images
+    for each route direction by assembling the relevant squares from source pages.
+
+    Args:
+        input: ScrRunResult containing a single FileData object (PDF or JPEG)
+        **kwargs: keyword arguments including 'script_config' for LLM settings
+
+    Returns:
+        ScrRunResult with list of FileData objects, one per time_grid direction,
+        or None if no valid regions found
+
+    Raises:
+        ValueError: If input doesn't contain exactly one FileData, or config is missing
+    """
     if len(input.data) != 1:
         raise ValueError("Input data must contain exactly one FileData object")
-
     data = input.data[0].bytes
     data_mime = input.data[0].mime
 
@@ -143,7 +177,7 @@ async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
         case "image/jpeg":
             pass
         case "application/pdf":
-            data = pdf_to_jpg(data)
+            data = pdf_to_jpg(data, prune_empty=True)
         case _:
             raise ValueError(f"Filetype '{data_mime}' is not supported")
 
@@ -152,12 +186,17 @@ async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
         raise ValueError(f"Script needs a script config")
 
     # split image into logical parts
-    region_data = await _get_region_descriptions(data, script_config)
-    if not region_data:
-        return None
+    region_data: dict[
+        bytes, TimetableRegions | None
+    ] = {}  # mapping: image bytes to regions extracted from them
+    if isinstance(data, list):
+        for page in data:
+            region_data[page] = await _get_region_descriptions(page, script_config)
+    else:
+        region_data[data] = await _get_region_descriptions(data, script_config)
 
     # assemble a list of FileData objects.
     # Each object is self sufficient piece of timetable data eg. Header, Direction1, Footer
-    output_data = _compose_timetable_for_direction(data, region_data)
+    output_data: list[FileData] = _compose_timetable_for_direction(region_data)
 
     return ScrRunResult(data=output_data)
