@@ -15,30 +15,19 @@
 from logging import getLogger
 
 import openrouter
-from visual.mask_image import compose_from_squares, region_to_square
+from visual.mask_image import compose_from_squares, join_images_vertical, region_to_square
 from visual.pdf import pdf_to_jpg
 
 from conf import config
 from lib.llm.openrouter_utils import OpenRouterUtils as utils
 from models.files import FileData, ScrRunResult
-from models.preprocessors import TimetableRegions
+from models.preprocessors import REGION_TYPES, Region, TimetableRegions
 from models.visual import Square
 
 log = getLogger(__name__)
 
 
-# def _check_regions_valid(regions: TimetableRegions) -> None:
-#     """Validate that a TimetableRegions object has sufficient time grids.
-
-#     Args:
-#         regions: TimetableRegions object to validate
-
-#     Raises:
-#         ValueError: If time_grids is missing or has fewer than 2 entries
-#     """
-#     time_grids = getattr(regions, "time_grids", None)
-#     if time_grids is None or len(time_grids) < 2:
-#         raise ValueError("Timetable must contain at least 2 time grids")
+type RegionData = dict[bytes, TimetableRegions | None]
 
 
 async def _get_region_descriptions(data: bytes, cfg):
@@ -87,7 +76,7 @@ async def _get_region_descriptions(data: bytes, cfg):
     return regions
 
 
-def _validate_region_data(region_data: dict[bytes, TimetableRegions | None]):
+def _validate_region_data(region_data: RegionData):
     """Check region_data is valid:
     - every image has one or two time_grid regions
     - every region type (footer, header, stop_names) has one region
@@ -134,41 +123,45 @@ def _validate_region_data(region_data: dict[bytes, TimetableRegions | None]):
     return {"ok": True, "err": None}
 
 
-def _assemble_directions(
-    region_data: dict[bytes, TimetableRegions | None]
-) -> dict[
-    int, dict[bytes, TimetableRegions]
-]:  # direction -> images and regions containing it
-    GROUP_BY_TYPE = "time_grid"
-    region_data_by_type = {}
-    type_count = 0
-    for image, regions in region_data.items():
-        if not regions:
+def _get_imgs_by_type(type: str, region_data: RegionData):
+    result: list[tuple[bytes, Region]] = []
+    for i1, d1 in region_data.items():
+        if not d1:
             continue
-        for region in regions.regions:
-            if region.type == GROUP_BY_TYPE:
-                # found time_grid in the image, fetch header, footer, stop_names
-                # and other regions from whichever images they are on
-                region_data_by_type[f"{GROUP_BY_TYPE}{type_count}"] = {image: regions}
-                type_count += 1
-
-    return region_data_by_type
+        for r1 in d1.regions:
+            if r1.type == type:
+                result.append((i1, r1))
+    return result
 
 
 def _compose_timetable_for_direction(
-    region_data: dict[bytes, TimetableRegions | None],
+    region_data: RegionData,
 ) -> list[FileData]:
     """Compose images for each time_grid direction using cut-and-paste.
     Region data is keyed like:
     image bytes -> `region_data` describing it
     """
+    DIRECTION_TYPE = "time_grid"
+    TYPES_REST = tuple(type for type in REGION_TYPES if type != DIRECTION_TYPE)
+
     output_data: list[FileData] = []
 
     valid = _validate_region_data(region_data)
     if not valid["ok"]:
         raise Exception(f"Invalid region data: {valid['err']}")
 
-    directions = _assemble_directions(region_data)
+    for i1, d1 in region_data.items():
+        if not d1:
+            continue
+        for region in d1.regions:
+            if region.type == DIRECTION_TYPE:
+                for type in TYPES_REST:
+                    images_w_type = _get_imgs_by_type(type, region_data)
+                    # assemble image by joining multiple images labeled as a ``type``
+                    visual_data: list[tuple[bytes, Square]] = []
+                    for i2, r2 in images_w_type:
+                        visual_data.append((i2, region_to_square(r2)))
+                    joined_type_image = join_images_vertical(visual_data)
 
     return output_data
 
@@ -209,9 +202,7 @@ async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
         raise ValueError(f"Script needs a script config")
 
     # split image into logical parts
-    region_data: dict[
-        bytes, TimetableRegions | None
-    ] = {}  # mapping: image bytes to regions extracted from them
+    region_data: RegionData = {}  # mapping: image bytes to regions extracted from them
     if isinstance(data, list):
         for page in data:
             region_data[page] = await _get_region_descriptions(page, script_config)

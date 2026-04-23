@@ -1,12 +1,16 @@
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, get_args
 
 from pydantic import BaseModel, Field
+
+RegionType = Literal["time_grid", "stop_names", "header", "footer", "other"]
+
+REGION_TYPES = get_args(RegionType)
 
 
 class Region(BaseModel):
     """A visual region identified in a timetable image."""
 
-    type: Literal["time_grid", "stop_names", "header", "footer", "other"]
+    type: RegionType
     top: int = Field(ge=0, le=1000, description="Distance from top of image (0-1000)")
     left: int = Field(ge=0, le=1000, description="Distance from left of image (0-1000)")
     bottom: int = Field(

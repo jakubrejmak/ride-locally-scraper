@@ -3,7 +3,7 @@ import io
 from PIL import Image, ImageDraw
 
 from models.preprocessors import Region
-from models.visual import Square, Direction
+from models.visual import Direction, Square
 
 
 def region_to_square(region: Region) -> Square:
@@ -38,6 +38,10 @@ def mask_jpeg_img(image_bytes: bytes, square: Square) -> bytes:
     output = io.BytesIO()
     img.save(output, format="JPEG", quality=100)
     return output.getvalue()
+
+
+def join_images_vertical(images: list[tuple[bytes, Square]]):
+    pass
 
 
 def compose_from_squares(image_bytes: bytes, squares: list[Square]) -> bytes:
