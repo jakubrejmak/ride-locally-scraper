@@ -103,7 +103,7 @@ async def run_process(
             if not isinstance(results, ProcessResult):
                 raise ValueError("Processor did not return a valid ProcessResult")
 
-            filepath = save_result(results, config.PCS_OUTPUT_DIR)
+            filepath = save_result(results, config.PROCESSOR_OUTPUT_DIR)
             if not filepath:
                 raise ValueError("Processor result did not produce any output files")
 

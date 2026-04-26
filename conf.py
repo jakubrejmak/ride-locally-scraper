@@ -9,9 +9,11 @@ load_dotenv()
 class Config:
     DATABASE_URL: str
     SRC_T_POLL_INTERVAL: int
-    SCR_OUTPUT_DIR = "output_files/o_scraper"
-    PCS_OUTPUT_DIR = "output_files/o_processor"
     OPENROUTER_API_KEY: str
+    DEBUG_PROCESSOR_OUTPUT: bool = True
+    DEBUG_OUTPUT_DIR: str = "output_files/debug"
+    SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
+    PROCESSOR_OUTPUT_DIR: str = "output_files/processor"
 
     def __init__(self):
         for key, type_ in get_type_hints(self).items():

@@ -1,8 +1,8 @@
-from typing import Any, Literal, Optional, get_args
+from typing import Any, Literal, NamedTuple, Optional, TypeAlias, TypedDict, get_args
 
 from pydantic import BaseModel, Field
 
-RegionType = Literal["time_grid", "stop_names", "header", "footer", "other"]
+RegionType = Literal["header", "stop_names", "time_grid", "footer", "other"]
 
 REGION_TYPES = get_args(RegionType)
 

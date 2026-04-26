@@ -15,7 +15,12 @@
 from logging import getLogger
 
 import openrouter
-from visual.mask_image import compose_from_squares, join_images_vertical, region_to_square
+from visual.image_utils import (
+    crop_image_to_square,
+    region_to_square,
+    stack_images_horizontal,
+    stack_images_vertical,
+)
 from visual.pdf import pdf_to_jpg
 
 from conf import config
@@ -51,7 +56,7 @@ async def _get_region_descriptions(data: bytes, cfg):
     system_prompt = cfg.get("system_prompt")
 
     if not model or not system_prompt:
-        raise ValueError(f"Script needs 'llm_model' and 'system_prompt' configured")
+        raise ValueError("Script needs 'llm_model' and 'system_prompt' configured")
 
     image_url = utils._get_img_data_url(data, "image/jpeg")
     payload = {
@@ -134,6 +139,10 @@ def _get_imgs_by_type(type: str, region_data: RegionData):
     return result
 
 
+type DirectionImage = tuple[str, bytes]
+type DirectionsData = dict[int, list[DirectionImage]]
+
+
 def _compose_timetable_for_direction(
     region_data: RegionData,
 ) -> list[FileData]:
@@ -144,24 +153,64 @@ def _compose_timetable_for_direction(
     DIRECTION_TYPE = "time_grid"
     TYPES_REST = tuple(type for type in REGION_TYPES if type != DIRECTION_TYPE)
 
-    output_data: list[FileData] = []
-
     valid = _validate_region_data(region_data)
     if not valid["ok"]:
         raise Exception(f"Invalid region data: {valid['err']}")
 
+    ###
+    # IMPORTANT:
+    # the order in which the image types will be appended is derived from the
+    # order of region types defined in REGION_TYPES.
+    ###
+    data_per_direction: DirectionsData = {}
+    direction_count = 0
     for i1, d1 in region_data.items():
         if not d1:
             continue
         for region in d1.regions:
             if region.type == DIRECTION_TYPE:
+                direction_image = crop_image_to_square(i1, region_to_square(region))
+                data_per_direction[direction_count].append(
+                    (region.type, direction_image)
+                )
                 for type in TYPES_REST:
                     images_w_type = _get_imgs_by_type(type, region_data)
                     # assemble image by joining multiple images labeled as a ``type``
-                    visual_data: list[tuple[bytes, Square]] = []
+                    visual_data: list[bytes] = []
                     for i2, r2 in images_w_type:
-                        visual_data.append((i2, region_to_square(r2)))
-                    joined_type_image = join_images_vertical(visual_data)
+                        visual_data.append(
+                            crop_image_to_square(i2, region_to_square(r2))
+                        )
+                    joined_type_image = stack_images_vertical(visual_data)
+                    data_per_direction[direction_count].append(
+                        (type, joined_type_image)
+                    )
+                direction_count += 1
+
+    # TODO: for every direction compose image from list[bytes] in `data_per_direction`
+    # and transform to FileData
+    output_data: list[FileData] = []
+
+    def _get_image_from_list(type: str, list: list[DirectionImage]) -> bytes | None:
+        for t, i in list:
+            if t == type:
+                return i
+        return None
+
+    for i, images in data_per_direction.items():
+        header_img = _get_image_from_list("header", images)
+        stop_names_img = _get_image_from_list("stop_names", images)
+        time_grid_img = _get_image_from_list("time_grid", images)
+        footer_img = _get_image_from_list("footer", images)
+        other_img = _get_image_from_list("other", images)
+
+        main_area_horizontal = stack_images_horizontal([stop_names_img, time_grid_img])
+        stacked_img = stack_images_vertical(
+            [header_img, main_area_horizontal, footer_img, other_img]
+        )
+        if not stacked_img:
+            raise ValueError(f"Failed to stack images for direction {i} out of {len(data_per_direction.keys())}")
+        output_data.append(FileData(mime="image/jpeg", ext="jpg", bytes=stacked_img, description=f"Direction {i}"))
 
     return output_data
 

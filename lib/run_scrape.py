@@ -136,7 +136,7 @@ async def run_scrape(
             if isinstance(result, ScrRunResult):
                 # save the file and point the DB to its location
                 if result:
-                    filepath = save_result(result, config.SCR_OUTPUT_DIR)
+                    filepath = save_result(result, config.SCRAPER_OUTPUT_DIR)
                     run.o_filepath = filepath
             elif isinstance(result, ScrScriptResult):
                 # modify current target
@@ -145,7 +145,7 @@ async def run_scrape(
                 await handle_new_targets(result.new_targets)
                 # save the file and point the DB to its location
                 if result.run_result:
-                    filepath = save_result(result.run_result, config.SCR_OUTPUT_DIR)
+                    filepath = save_result(result.run_result, config.SCRAPER_OUTPUT_DIR)
                     run.o_filepath = filepath
 
             async with session() as s:
