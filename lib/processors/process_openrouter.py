@@ -6,29 +6,27 @@ from models.files import FileData
 from models.processors import OpenRouterProviderConfig
 
 
-async def process_openrouter(
+async def process_image(
     file: FileData, config: OpenRouterProviderConfig
-) -> FileData | None:
-    if file.mime != "image/jpeg":
-        raise ValueError("Unsupported mime type in process_openrouter")
+) -> str | None:
+    MIME_TYPES = ["image/jpeg"]
+    if file.mime not in MIME_TYPES:
+        raise ValueError(
+            f"Unsupported mime type. Supported: {MIME_TYPES}, got: {file.mime}"
+        )
 
     model = config.model
     system_prompt = config.system_prompt
-    user_prompt = file.description
+    user_prompts = config.user_prompts
     params = config.api_params
 
     image_url = utils._get_img_data_url(file.bytes, "image/jpeg")
     payload = {
         "model": model,
         "messages": utils.build_messages(
-            utils._add_message("system", system_prompt),
-            utils._add_message(
-                "user",
-                f"The following image has a description of the route direction from low resolution layout recognition model: {user_prompt}. You are free to use it as a help in determining the precise route direction and route name"
-                if user_prompt
-                else None,
-            ),
-            utils._add_message("user", image_url, "image_url"),
+            utils.add_message("system", system_prompt),
+            *[utils.add_message("user", msg) for msg in user_prompts],
+            utils.add_message("user", image_url, "image_url"),
         ),
         **params,
     }
@@ -40,8 +38,4 @@ async def process_openrouter(
     if not isinstance(content, str):
         return None
 
-    return FileData(
-        mime="text/plain",
-        ext="txt",
-        bytes=content.encode("utf-8"),
-    )
+    return content

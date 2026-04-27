@@ -12,7 +12,8 @@ PROCESSORS = {
     OpenRouterProviderConfig: "process_openrouter",
 }
 
-def join_text_outputs(data: list[FileData]) -> list[FileData]:
+
+def join_filedata_to_text(data: list[FileData]) -> list[FileData]:
     agg = b""
     for i, f in enumerate(data):
         if f.mime != "text/plain":
@@ -48,19 +49,21 @@ async def llm_process_files(
         )
 
     module = importlib.import_module(f"lib.processors.{target_processor}")
-    process_func = getattr(module, target_processor)
+    process_func = getattr(module, "process_image")
     cfg = processor_config.config
 
     results = ProcessResult(data=[])
     for f in input.data:
         # usually preprocess will run deskew on document, then extract each self contained route direction
-        result = await process_func(f, cfg)
-        if not result:
+        resp: str = await process_func(f, cfg)
+        if not resp:
             raise ValueError(f"LLM processor could not produce valid result")
+
+        result = FileData(mime="text/plain", ext="txt", bytes=resp.encode("utf-8"))
         results.data.append(result)
 
     # if multiple items in results -> join into one text file
     if len(results.data) > 1:
-        results.data = join_text_outputs(results.data)
+        results.data = join_filedata_to_text(results.data)
 
     return results

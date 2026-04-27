@@ -2,7 +2,7 @@ from models.files import FileData
 from models.processors import GeminiProviderConfig
 
 
-async def process_gemini(
+async def process_image(
     files: FileData, config: GeminiProviderConfig
-) -> FileData | None:
+) -> str | None:
     raise ValueError(f"Gemini config not supported")

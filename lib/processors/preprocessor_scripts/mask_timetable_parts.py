@@ -27,7 +27,6 @@ from conf import config
 from lib.llm.openrouter_utils import OpenRouterUtils as utils
 from models.files import FileData, ScrRunResult
 from models.preprocessors import REGION_TYPES, Region, TimetableRegions
-from models.visual import Square
 
 log = getLogger(__name__)
 
@@ -62,8 +61,8 @@ async def _get_region_descriptions(data: bytes, cfg):
     payload = {
         "model": model,
         "messages": utils.build_messages(
-            utils._add_message("system", system_prompt),
-            utils._add_message("user", image_url, "image_url"),
+            utils.add_message("system", system_prompt),
+            utils.add_message("user", image_url, "image_url"),
         ),
         "reasoning": {"effort": "none"},
         "response_format": utils.to_response_format_schema(TimetableRegions),
@@ -187,7 +186,7 @@ def _compose_timetable_for_direction(
                     )
                 direction_count += 1
 
-    # TODO: for every direction compose image from list[bytes] in `data_per_direction`
+    # for every direction compose image from list[bytes] in `data_per_direction`
     # and transform to FileData
     output_data: list[FileData] = []
 
@@ -198,6 +197,12 @@ def _compose_timetable_for_direction(
         return None
 
     for i, images in data_per_direction.items():
+        # TODO
+        PARTS = {"header", "stop_names", "time_grid", "footer", "other"}
+
+        for part in PARTS:
+            PARTS[part] = _get_image_from_list(part, images)
+
         header_img = _get_image_from_list("header", images)
         stop_names_img = _get_image_from_list("stop_names", images)
         time_grid_img = _get_image_from_list("time_grid", images)
@@ -209,8 +214,17 @@ def _compose_timetable_for_direction(
             [header_img, main_area_horizontal, footer_img, other_img]
         )
         if not stacked_img:
-            raise ValueError(f"Failed to stack images for direction {i} out of {len(data_per_direction.keys())}")
-        output_data.append(FileData(mime="image/jpeg", ext="jpg", bytes=stacked_img, description=f"Direction {i}"))
+            raise ValueError(
+                f"Failed to stack images for direction {i} out of {len(data_per_direction.keys())}"
+            )
+        output_data.append(
+            FileData(
+                mime="image/jpeg",
+                ext="jpg",
+                bytes=stacked_img,
+                description=f"Direction {i}",
+            )
+        )
 
     return output_data
 
@@ -248,7 +262,7 @@ async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
 
     script_config = kwargs.get("script_config")
     if not script_config:
-        raise ValueError(f"Script needs a script config")
+        raise ValueError("Script needs a script config")
 
     # split image into logical parts
     region_data: RegionData = {}  # mapping: image bytes to regions extracted from them

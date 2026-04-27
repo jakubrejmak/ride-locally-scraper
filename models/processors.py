@@ -1,10 +1,7 @@
-from typing import Literal, Optional, Any
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
-
-from models.files import ScrRunResult
-
 
 GeminiModels = Literal["gemini-3-flash-preview"]
 
@@ -13,6 +10,8 @@ class GeminiProviderConfig(BaseModel):
     provider: Literal["gemini"] = "gemini"
     model: GeminiModels
     system_prompt: Optional[str] = None
+    user_prompts: list[str] = Field(default_factory=list)
+    api_params: dict[str, Any] = Field(default_factory=dict)
 
 
 OpenRouterModels = Literal["gemini-3-flash-preview"]
@@ -22,7 +21,8 @@ class OpenRouterProviderConfig(BaseModel):
     provider: Literal["openrouter"] = "openrouter"
     model: OpenRouterModels
     system_prompt: Optional[str] = None
-    api_params: dict[str, Any] = {}
+    user_prompts: list[str] = Field(default_factory=list)
+    api_params: dict[str, Any] = Field(default_factory=dict)
 
 
 class LLMProcessorConfig(BaseModel):

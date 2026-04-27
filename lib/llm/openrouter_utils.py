@@ -14,7 +14,7 @@ class OpenRouterUtils:
         return f"data:{mime};base64,{base64.b64encode(data).decode()}"
 
     @staticmethod
-    def _add_message(
+    def add_message(
         role: str, content: str | None, content_type: str | None = None
     ) -> MessageTransformer:
         if not content:

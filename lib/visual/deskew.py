@@ -3,7 +3,6 @@ import io
 import numpy as np
 from deskew import determine_skew
 from PIL import Image
-from skimage.color import rgb2gray
 from skimage.transform import rotate
 
 

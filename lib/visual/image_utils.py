@@ -43,10 +43,7 @@ def mask_jpeg_img(image_bytes: bytes, square: Square) -> bytes:
 def _stack_images(
     image_bytes: list[bytes],
     direction: Direction,
-) -> bytes | None:
-    if not image_bytes:
-        return None
-
+) -> bytes:
     if len(image_bytes) == 1:
         return image_bytes[0]
 
@@ -89,11 +86,11 @@ def _stack_images(
     return output.getvalue()
 
 
-def stack_images_vertical(images: list[bytes | None]) -> bytes | None:
+def stack_images_vertical(images: list[bytes]) -> bytes:
     """Stack images vertically"""
-    return _stack_images([image for image in images if image is not None], "vertical")
+    return _stack_images(images, "vertical")
 
 
-def stack_images_horizontal(images: list[bytes | None]) -> bytes | None:
+def stack_images_horizontal(images: list[bytes]) -> bytes:
     """Stack images horizontally"""
-    return _stack_images([image for image in images if image is not None], "horizontal")
+    return _stack_images(images, "horizontal")

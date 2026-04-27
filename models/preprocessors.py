@@ -1,10 +1,14 @@
-from typing import Any, Literal, NamedTuple, Optional, TypeAlias, TypedDict, get_args
+from typing import Any, Literal, Optional, get_args
 
 from pydantic import BaseModel, Field
 
 RegionType = Literal["header", "stop_names", "time_grid", "footer", "other"]
 
 REGION_TYPES = get_args(RegionType)
+
+###
+# Timetable LLM structured output model
+###
 
 
 class Region(BaseModel):
@@ -31,6 +35,17 @@ class TimetableRegions(BaseModel):
     """Collection of visual regions identified in a timetable."""
 
     regions: list[Region]
+
+
+class ImageOrientation(BaseModel):
+    orientation: Literal["correct", "rotate_90", "rotate_180", "rotate_270"] = Field(
+        description="The orientation of the image"
+    )
+
+
+###
+# Preprocessor pipeline tool chain models
+###
 
 
 class PreprocessorTool(BaseModel):

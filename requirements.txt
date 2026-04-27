@@ -7,3 +7,4 @@ xlrd
 python-magic
 numpy
 deskew
+openrouter
