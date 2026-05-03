@@ -13,6 +13,7 @@
 ###
 
 from logging import getLogger
+from typing import get_args
 
 import openrouter
 from visual.image_utils import (
@@ -26,7 +27,7 @@ from visual.pdf import pdf_to_jpg
 from conf import config
 from lib.llm.openrouter_utils import OpenRouterUtils as utils
 from models.files import FileData, ScrRunResult
-from models.preprocessors import REGION_TYPES, Region, TimetableRegions
+from models.preprocessors import Region, RegionType, TimetableRegions
 
 log = getLogger(__name__)
 
@@ -150,6 +151,7 @@ def _compose_timetable_for_direction(
     image bytes -> `region_data` describing it
     """
     DIRECTION_TYPE = "time_grid"
+    REGION_TYPES = get_args(RegionType)
     TYPES_REST = tuple(type for type in REGION_TYPES if type != DIRECTION_TYPE)
 
     valid = _validate_region_data(region_data)
@@ -197,22 +199,16 @@ def _compose_timetable_for_direction(
         return None
 
     for i, images in data_per_direction.items():
-        # TODO
-        PARTS = {"header", "stop_names", "time_grid", "footer", "other"}
+        PARTS_HORIZONTAL = []
+        PARTS_VERTICAL = []
 
-        for part in PARTS:
-            PARTS[part] = _get_image_from_list(part, images)
+        for t in ("stop_names", "time_grid"):
+            PARTS_HORIZONTAL.append(_get_image_from_list(t, images))
+        for t in ("header", "footer", "other"):
+            PARTS_VERTICAL.append(_get_image_from_list(t, images))
 
-        header_img = _get_image_from_list("header", images)
-        stop_names_img = _get_image_from_list("stop_names", images)
-        time_grid_img = _get_image_from_list("time_grid", images)
-        footer_img = _get_image_from_list("footer", images)
-        other_img = _get_image_from_list("other", images)
-
-        main_area_horizontal = stack_images_horizontal([stop_names_img, time_grid_img])
-        stacked_img = stack_images_vertical(
-            [header_img, main_area_horizontal, footer_img, other_img]
-        )
+        main_area_horizontal = stack_images_horizontal(PARTS_HORIZONTAL)
+        stacked_img = stack_images_vertical([*PARTS_VERTICAL, main_area_horizontal])
         if not stacked_img:
             raise ValueError(
                 f"Failed to stack images for direction {i} out of {len(data_per_direction.keys())}"
