@@ -15,3 +15,13 @@ def deskew_image(image_bytes: bytes) -> bytes:
     output = io.BytesIO()
     Image.fromarray(rotated.astype(np.uint8)).save(output, format="JPEG", quality=100)
     return output.getvalue()
+
+
+def rotate_image(image_bytes: bytes, angle: float) -> bytes:
+    """Rotate an image by a given angle and return corrected JPEG bytes."""
+    image = np.array(Image.open(io.BytesIO(image_bytes)))
+    rotated = rotate(image, angle, resize=True) * 255
+
+    output = io.BytesIO()
+    Image.fromarray(rotated.astype(np.uint8)).save(output, format="JPEG", quality=100)
+    return output.getvalue()

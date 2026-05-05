@@ -9,11 +9,8 @@ import signal
 from logging import getLogger
 
 from conf import config
-from lib.target_utils import get_due_targets
 from lib.run_scrape import run_scrape
-
-_shutdown = asyncio.Event()
-_semaphore = asyncio.Semaphore(5)
+from lib.target_utils import get_due_targets
 
 logger = getLogger(__name__)
 logging.basicConfig(
@@ -21,9 +18,16 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
 
+_shutdown = asyncio.Event()
+_semaphore = asyncio.Semaphore(5)
+
+# queues instead of gating behind a semaphore
+# scrape_queue = asyncio.Queue(maxsize=100)
+# process_queue = asyncio.Queue(maxsize=100)
+# import_queue = asyncio.Queue(maxsize=100)
 
 def _handle_sig():
-    logger.info("shutdown signal recieved")
+    logger.info("shutdown signal received")
     _shutdown.set()
 
 
@@ -41,10 +45,6 @@ def _handle_sig():
 
 
 async def scrape_loop():
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, _handle_sig)
-
     tasks: set[asyncio.Task] = set()
 
     while not _shutdown.is_set():
@@ -56,8 +56,8 @@ async def scrape_loop():
                 )
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
-        except Exception as e:
-            logger.exception(f"scrape_loop error: {e}")
+        except Exception:
+            logger.exception("scrape_loop error")
         finally:
             try:
                 await asyncio.wait_for(_shutdown.wait(), config.SRC_T_POLL_INTERVAL)
@@ -71,9 +71,24 @@ async def scrape_loop():
     logger.info("scrape_loop stopped")
 
 
-def main():
-    asyncio.run(scrape_loop())
+async def process_loop():
+    pass
+
+
+async def main():
+    loop = asyncio.get_running_loop()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, _handle_sig)
+        except NotImplementedError:
+            signal.signal(sig, lambda s, f: _handle_sig())
+
+    await asyncio.gather(
+        scrape_loop(),
+        process_loop(),
+    )
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
