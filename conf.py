@@ -7,10 +7,17 @@ load_dotenv()
 
 
 class Config:
-    DATABASE_URL: str
-    SRC_T_POLL_INTERVAL: int
     OPENROUTER_API_KEY: str
-    DEBUG_PROCESSOR_OUTPUT: bool = True
+
+    DATABASE_URL: str
+
+    SCRAPER_POLL_INTERVAL: int = 3600  # in seconds
+    SCRAPER_WORKER_COUNT: int = 4
+
+    PROCESSOR_POLL_INTERVAL: int = 3600  # in seconds
+    PROCESSOR_WORKER_COUNT: int = 4
+
+    DEBUG_OUTPUTS: bool = True
     DEBUG_OUTPUT_DIR: str = "output_files/debug"
     SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
     PROCESSOR_OUTPUT_DIR: str = "output_files/processor"

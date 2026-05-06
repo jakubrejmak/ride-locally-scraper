@@ -2,14 +2,12 @@
 #   scraper service
 ###
 
-import asyncio
-from contextlib import nullcontext
 from datetime import UTC, datetime
 from logging import getLogger
 
+from conf import config
 from db.schema import ScrapeStatus, ttScrRunTable, ttScrTargetTable
 from db.session import session
-from conf import config
 from lib.files import save_result
 from lib.scrapers.run_firecrawl import run_firecrawl
 from lib.scrapers.run_scrapling import run_scrapling
@@ -107,60 +105,56 @@ async def _mark_as_error(run: ttScrRunTable, message: str | None):
 
 async def run_scrape(
     target: ttScrTargetTable,
-    stop_condition: asyncio.Event | None = None,
-    semaphore: asyncio.Semaphore | None = None,
 ) -> bool:
     """Takes a target and saves its result to ttScrRunTable"""
-    if stop_condition and stop_condition.is_set():
-        return False
-    async with semaphore or nullcontext():
-        # create run row in ttScrRunTable and save the result into its output
-        run = ttScrRunTable(target_id=target.id)
-        run.status = ScrapeStatus.running
-        run.started_at = datetime.now(UTC)
+
+    # create run row in ttScrRunTable and save the result into its output
+    run = ttScrRunTable(target_id=target.id)
+    run.status = ScrapeStatus.running
+    run.started_at = datetime.now(UTC)
+    async with session() as s:
+        s.add(run)
+        await s.commit()
+
+    try:
+        target_config = ScrTargetConfig.model_validate(target.config)
+
+        match target_config.scraper:
+            case FirecrawlConfig() as scraper:
+                result = await run_firecrawl(target.url, scraper)
+            case ScraplingConfig() as scraper:
+                result = await run_scrapling(target.url, scraper)
+            case _:
+                raise ValueError("No scrape method provided")
+
+        if isinstance(result, ScrRunResult):
+            # save the file and point the DB to its location
+            if result:
+                filepath = save_result(result, config.SCRAPER_OUTPUT_DIR)
+                run.o_filepath = filepath
+        elif isinstance(result, ScrScriptResult):
+            # modify current target
+            await handle_self_update(target, result.self_update)
+            # add new targets to session
+            await handle_new_targets(result.new_targets)
+            # save the file and point the DB to its location
+            if result.run_result:
+                filepath = save_result(result.run_result, config.SCRAPER_OUTPUT_DIR)
+                run.o_filepath = filepath
+
         async with session() as s:
+            run.status = ScrapeStatus.success
+            run.finished_at = datetime.now(UTC)
             s.add(run)
             await s.commit()
 
-        try:
-            target_config = ScrTargetConfig.model_validate(target.config)
-
-            match target_config.scraper:
-                case FirecrawlConfig() as scraper:
-                    result = await run_firecrawl(target.url, scraper)
-                case ScraplingConfig() as scraper:
-                    result = await run_scrapling(target.url, scraper)
-                case _:
-                    raise ValueError("No scrape method provided")
-
-            if isinstance(result, ScrRunResult):
-                # save the file and point the DB to its location
-                if result:
-                    filepath = save_result(result, config.SCRAPER_OUTPUT_DIR)
-                    run.o_filepath = filepath
-            elif isinstance(result, ScrScriptResult):
-                # modify current target
-                await handle_self_update(target, result.self_update)
-                # add new targets to session
-                await handle_new_targets(result.new_targets)
-                # save the file and point the DB to its location
-                if result.run_result:
-                    filepath = save_result(result.run_result, config.SCRAPER_OUTPUT_DIR)
-                    run.o_filepath = filepath
-
-            async with session() as s:
-                run.status = ScrapeStatus.success
-                run.finished_at = datetime.now(UTC)
-                s.add(run)
-                await s.commit()
-
-        except Exception as e:
-            log.error(e)
-            await _mark_as_error(run, str(e))
-            return False
-        except BaseException as e:
-            log.error(e)
-            await _mark_as_error(run, str(e))
-            raise
+    except Exception as e:
+        log.error(e)
+        await _mark_as_error(run, str(e))
+        return False
+    except BaseException as e:
+        log.error(e)
+        await _mark_as_error(run, str(e))
+        raise
 
     return True

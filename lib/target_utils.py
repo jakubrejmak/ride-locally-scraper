@@ -4,7 +4,7 @@ from croniter import croniter
 from sqlalchemy import select
 
 from conf import config
-from db.schema import ttScrTargetTable
+from db.schema import ttScrRunTable, ttScrTargetTable
 from db.session import session
 from models.targets import ScrTargetConfig
 
@@ -19,8 +19,13 @@ def is_due(schedule_cron: str | None, poll_interval: int) -> bool:
     return (now - prev_run).total_seconds() <= poll_interval
 
 
-async def get_due_targets() -> list[ttScrTargetTable]:
+async def get_due_scraper_targets() -> list[ttScrTargetTable]:
+    """Returns a list of `all` active targets that are due to be scraped.
+    Marks targets as claimed, so they cant be picked up again, until consumer
+    finishes or errors."""
     async with session() as s:
+        # TODO: mark claimed tasks as processing so they cant be picked up again,
+        # the processor will unmark them
         q = (
             select(ttScrTargetTable)
             .where(ttScrTargetTable.is_active)
@@ -31,7 +36,7 @@ async def get_due_targets() -> list[ttScrTargetTable]:
 
         due_targets = []
         for t in active_targets:
-            if is_due(t.schedule_cron, config.SRC_T_POLL_INTERVAL):
+            if is_due(t.schedule_cron, config.SCRAPER_POLL_INTERVAL):
                 due_targets.append(t)
 
     return due_targets
@@ -44,3 +49,12 @@ async def get_target_config(target_id: int) -> ScrTargetConfig:
         result = r.scalar_one()
 
     return ScrTargetConfig.model_validate(result.config)
+
+
+async def get_due_processor_targets() -> list[ttScrRunTable]:
+    """Returns a list of `all` active targets that are due to be processed.
+    Marks targets as claimed, so they cant be picked up again, until consumer
+    finishes or errors."""
+    # TODO: mark claimed tasks as processing so they cant be picked up again,
+    # the processor will unmark them
+    return []

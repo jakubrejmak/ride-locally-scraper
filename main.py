@@ -9,8 +9,10 @@ import signal
 from logging import getLogger
 
 from conf import config
+from db.schema import ttScrRunTable, ttScrTargetTable
+from lib.run_process import run_process
 from lib.run_scrape import run_scrape
-from lib.target_utils import get_due_targets
+from lib.target_utils import get_due_processor_targets, get_due_scraper_targets
 
 logger = getLogger(__name__)
 logging.basicConfig(
@@ -19,12 +21,7 @@ logging.basicConfig(
 )
 
 _shutdown = asyncio.Event()
-_semaphore = asyncio.Semaphore(5)
 
-# queues instead of gating behind a semaphore
-# scrape_queue = asyncio.Queue(maxsize=100)
-# process_queue = asyncio.Queue(maxsize=100)
-# import_queue = asyncio.Queue(maxsize=100)
 
 def _handle_sig():
     logger.info("shutdown signal received")
@@ -44,35 +41,70 @@ def _handle_sig():
 ###
 
 
-async def scrape_loop():
-    tasks: set[asyncio.Task] = set()
+async def scraper():
+    queue: asyncio.Queue[ttScrTargetTable] = asyncio.Queue(maxsize=50)
 
-    while not _shutdown.is_set():
-        try:
-            targets = await get_due_targets()
-            for t in targets:
-                task = asyncio.create_task(
-                    run_scrape(t, semaphore=_semaphore, stop_condition=_shutdown)
-                )
-                tasks.add(task)
-                task.add_done_callback(tasks.discard)
-        except Exception:
-            logger.exception("scrape_loop error")
-        finally:
+    async def producer():
+        while not _shutdown.is_set():
             try:
-                await asyncio.wait_for(_shutdown.wait(), config.SRC_T_POLL_INTERVAL)
+                targets = await get_due_scraper_targets()
+                for t in targets:
+                    await queue.put(t)
+                await asyncio.wait_for(_shutdown.wait(), config.SCRAPER_POLL_INTERVAL)
             except asyncio.TimeoutError:
                 pass
+            except Exception:
+                logger.exception("scraper error")
 
-    if tasks:
-        logger.info(f"waiting for {len(tasks)} to finish")
-        await asyncio.gather(*tasks, return_exceptions=True)
+    async def consumer():
+        while not _shutdown.is_set():
+            try:
+                t = await asyncio.wait_for(queue.get(), timeout=1.0)
+                await run_scrape(t)  # writes results to db
+                queue.task_done()
+            except asyncio.TimeoutError:
+                pass
+            except Exception:
+                logger.exception("worker error")
 
-    logger.info("scrape_loop stopped")
+    await asyncio.gather(
+        producer(), *[consumer() for _ in range(config.SCRAPER_WORKER_COUNT)]
+    )
+
+    logger.info("scraper stopped")
 
 
-async def process_loop():
-    pass
+async def processor():
+    queue: asyncio.Queue[ttScrRunTable] = asyncio.Queue(maxsize=3)
+
+    async def producer():
+        while not _shutdown.is_set():
+            try:
+                targets = await get_due_processor_targets()
+                for t in targets:
+                    await queue.put(t)
+                await asyncio.wait_for(_shutdown.wait(), config.PROCESSOR_POLL_INTERVAL)
+            except asyncio.TimeoutError:
+                pass
+            except Exception:
+                logger.exception("processor error")
+
+    async def consumer():
+        while not _shutdown.is_set():
+            try:
+                t = await asyncio.wait_for(queue.get(), timeout=1.0)
+                await run_process(t)  # writes results to db
+                queue.task_done()
+            except asyncio.TimeoutError:
+                pass
+            except Exception:
+                logger.exception("worker error")
+
+    await asyncio.gather(
+        producer(), *[consumer() for _ in range(config.PROCESSOR_WORKER_COUNT)]
+    )
+
+    logger.info("processor stopped")
 
 
 async def main():
@@ -85,8 +117,8 @@ async def main():
             signal.signal(sig, lambda s, f: _handle_sig())
 
     await asyncio.gather(
-        scrape_loop(),
-        process_loop(),
+        scraper(),
+        processor(),
     )
 
 

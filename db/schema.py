@@ -26,8 +26,9 @@ class Status(enum.Enum):
     failed = "failed"
 
 
-ScrapeStatus: TypeAlias = Status
+ScrapeTargetStatus: TypeAlias = Status
 ProcessStatus: TypeAlias = Status
+ImportStatus: TypeAlias = Status
 
 
 class ttScrTargetTable(Base):
@@ -37,6 +38,11 @@ class ttScrTargetTable(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     config: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    status: Mapped[ScrapeTargetStatus] = mapped_column(
+        Enum(ScrapeTargetStatus, name="process_status"),
+        nullable=False,
+        default=ScrapeTargetStatus.pending,
+    )
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     carrier_id: Mapped[int] = mapped_column(
@@ -57,10 +63,10 @@ class ttScrRunTable(Base):
     target_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("scr_targets.id", ondelete="CASCADE"), nullable=False
     )
-    status: Mapped[ScrapeStatus] = mapped_column(
-        Enum(ScrapeStatus, name="scrape_status"),
+    status: Mapped[ProcessStatus] = mapped_column(
+        Enum(ProcessStatus, name="scrape_status"),
         nullable=False,
-        default=ScrapeStatus.pending,
+        default=ProcessStatus.pending,
     )
     o_filepath: Mapped[str | None] = mapped_column(Text)
     error_message: Mapped[str | None] = mapped_column(Text)
@@ -81,10 +87,10 @@ class ttScrProcessedTable(Base):
     target_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("scr_targets.id", ondelete="CASCADE"), nullable=False
     )
-    status: Mapped[ProcessStatus] = mapped_column(
-        Enum(ProcessStatus, name="process_status"),
+    status: Mapped[ImportStatus] = mapped_column(
+        Enum(ImportStatus, name="process_status"),
         nullable=False,
-        default=ProcessStatus.pending,
+        default=ImportStatus.pending,
     )
     o_filepath: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
