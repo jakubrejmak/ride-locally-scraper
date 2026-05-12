@@ -1,4 +1,5 @@
 sqlalchemy
+asyncpg
 python-dotenv
 scrapling
 croniter
