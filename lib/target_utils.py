@@ -20,12 +20,8 @@ def is_due(schedule_cron: str | None, poll_interval: int) -> bool:
 
 
 async def get_due_scraper_targets() -> list[ttScrTargetTable]:
-    """Returns a list of `all` active targets that are due to be scraped.
-    Marks targets as claimed, so they cant be picked up again, until consumer
-    finishes or errors."""
+    """Returns a list of `all` active targets that are due to be scraped."""
     async with session() as s:
-        # TODO: mark claimed tasks as processing so they cant be picked up again,
-        # the processor will unmark them
         q = (
             select(ttScrTargetTable)
             .where(ttScrTargetTable.is_active)
@@ -52,9 +48,4 @@ async def get_target_config(target_id: int) -> ScrTargetConfig:
 
 
 async def get_due_processor_targets() -> list[ttScrRunTable]:
-    """Returns a list of `all` active targets that are due to be processed.
-    Marks targets as claimed, so they cant be picked up again, until consumer
-    finishes or errors."""
-    # TODO: mark claimed tasks as processing so they cant be picked up again,
-    # the processor will unmark them
     return []
