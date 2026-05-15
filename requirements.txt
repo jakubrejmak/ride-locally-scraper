@@ -1,7 +1,13 @@
 sqlalchemy
 asyncpg
+alembic
 python-dotenv
 scrapling
+playwright
+browserforge
+msgspec
+patchright
+curl_cffi
 croniter
 pydantic
 xlrd

@@ -9,7 +9,7 @@ from logging import getLogger
 from sqlalchemy import select
 
 from conf import config
-from db.schema import ProcessStatus, ttScrProcessedTable, ttScrRunTable
+from db.schema import ProcessStatus, ScrProcessedTable, ScrRunTable
 from db.session import session
 from lib.files import read_result, save_result
 from lib.processors.preprocess import preprocess_file
@@ -21,18 +21,18 @@ from models.processors import LLMProcessorConfig
 log = getLogger(__name__)
 
 
-async def _get_existing_processed(run_id: int) -> ttScrProcessedTable | None:
+async def _get_existing_processed(run_id: int) -> ScrProcessedTable | None:
     async with session() as s:
-        q = select(ttScrProcessedTable).where(ttScrProcessedTable.run_id == run_id)
+        q = select(ScrProcessedTable).where(ScrProcessedTable.run_id == run_id)
         resp = await s.execute(q)
         result = resp.scalar_one_or_none()
     return result
 
 
-async def _get_process_row(run: ttScrRunTable) -> ttScrProcessedTable:
+async def _get_process_row(run: ScrRunTable) -> ScrProcessedTable:
     to_process = await _get_existing_processed(run.id)
     if not to_process:
-        to_process = ttScrProcessedTable(
+        to_process = ScrProcessedTable(
             run_id=run.id,
             target_id=run.target_id,
             o_filepath=None,
@@ -48,7 +48,7 @@ async def _get_process_row(run: ttScrRunTable) -> ttScrProcessedTable:
     return to_process
 
 
-async def _mark_as_error(run: ttScrProcessedTable, message: str | None):
+async def _mark_as_error(run: ScrProcessedTable, message: str | None):
     async with session() as s:
         run.status = ProcessStatus.failed
         run.finished_at = datetime.now(UTC)
@@ -58,9 +58,9 @@ async def _mark_as_error(run: ttScrProcessedTable, message: str | None):
 
 
 async def run_process(
-    run: ttScrRunTable,
+    run: ScrRunTable,
 ) -> bool:
-    """Takes a ttScrRunTable row, processes its output file and saves the result to ttScrProcessedTable"""
+    """Takes a ScrRunTable row, processes its output file and saves the result to ScrProcessedTable"""
     if run.o_filepath is None:
         raise ValueError(f"Scrape run: '{run.id}' has no output filepath to process")
 

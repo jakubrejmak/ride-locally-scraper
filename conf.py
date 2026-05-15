@@ -17,6 +17,7 @@ def _parse(typ: type[Any], raw: str) -> Any:
 class Config:
     OPENROUTER_API_KEY: str
     DATABASE_URL: str
+    ALEMBIC_DATABASE_URL: str
 
     SCRAPER_POLL_INTERVAL: int = 3600  # seconds
     SCRAPER_WORKER_COUNT: int = 4

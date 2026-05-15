@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from logging import getLogger
 
 from conf import config
-from db.schema import ScrapeStatus, ttScrRunTable, ttScrTargetTable
+from db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from db.session import session
 from lib.files import save_result
 from lib.scrapers.run_firecrawl import run_firecrawl
@@ -18,13 +18,13 @@ from models.targets import NewScrTarget, ScrScriptResult, ScrTargetConfig
 log = getLogger(__file__)
 
 
-def new_target_to_row(new_target: NewScrTarget) -> ttScrTargetTable:
+def new_target_to_row(new_target: NewScrTarget) -> ScrTargetTable:
     data = new_target.model_dump()
-    mapper = ttScrTargetTable.__table__.columns
+    mapper = ScrTargetTable.__table__.columns
 
     for field, val in data.items():
         if field not in mapper:
-            raise ValueError(f"Field '{field}' does not exist on ttScrTargetTable")
+            raise ValueError(f"Field '{field}' does not exist on ScrTargetTable")
         col = mapper[field]
         expected = col.type.python_type
         if val is None:
@@ -41,11 +41,11 @@ def new_target_to_row(new_target: NewScrTarget) -> ttScrTargetTable:
                     f"Field '{field}': length {len(val)} exceeds max {col.type.length}"  # type: ignore[union-attr]
                 )
 
-    return ttScrTargetTable(**data)
+    return ScrTargetTable(**data)
 
 
 async def handle_self_update(
-    target: ttScrTargetTable, self_update: NewScrTarget | None
+    target: ScrTargetTable, self_update: NewScrTarget | None
 ) -> dict | None:
     if self_update is None:
         return None
@@ -53,7 +53,7 @@ async def handle_self_update(
     validated = new_target_to_row(self_update)
     fields = [
         c.key
-        for c in ttScrTargetTable.__table__.columns
+        for c in ScrTargetTable.__table__.columns
         if c.key not in ("id", "created_at", "updated_at")
     ]
 
@@ -94,7 +94,7 @@ async def handle_new_targets(
     return added, failed
 
 
-async def _mark_as_error(run: ttScrRunTable, message: str | None):
+async def _mark_as_error(run: ScrRunTable, message: str | None):
     async with session() as s:
         run.status = ScrapeStatus.failed
         run.finished_at = datetime.now(UTC)
@@ -104,12 +104,12 @@ async def _mark_as_error(run: ttScrRunTable, message: str | None):
 
 
 async def run_scrape(
-    target: ttScrTargetTable,
+    target: ScrTargetTable,
 ) -> bool:
-    """Takes a target and saves its result to ttScrRunTable"""
+    """Takes a target and saves its result to ScrRunTable"""
 
-    # create run row in ttScrRunTable and save the result into its output
-    run = ttScrRunTable(target_id=target.id)
+    # create run row in ScrRunTable and save the result into its output
+    run = ScrRunTable(target_id=target.id)
     run.status = ScrapeStatus.running
     run.started_at = datetime.now(UTC)
     async with session() as s:

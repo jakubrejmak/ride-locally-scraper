@@ -1,6 +1,8 @@
-.venv
-.vscode
 .env
+
+.venv
+__pycache__
+
 scrapling_scripts
 processor_prompts
 preprocessor_prompts

@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from models.files import ScrRunResult
-from models.processors import LLMProcessorConfig, PreprocessorConfig
+from models.processors import LLMProcessorConfig
+from models.preprocessors import PreprocessorConfig
 from models.scrapers import FirecrawlConfig, ScraplingConfig
 
 

@@ -1,6 +1,6 @@
-from typing import TypeAlias
 import enum
 from datetime import datetime
+from typing import TypeAlias
 
 from sqlalchemy import (
     Boolean,
@@ -30,8 +30,8 @@ ScrapeStatus: TypeAlias = Status
 ProcessStatus: TypeAlias = Status
 
 
-class ttScrTargetTable(Base):
-    __tablename__ = "tt_scr_targets"
+class ScrTargetTable(Base):
+    __tablename__ = "scr_targets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -39,9 +39,7 @@ class ttScrTargetTable(Base):
     config: Mapped[dict] = mapped_column(JSONB, nullable=False)
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    carrier_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("carriers.id", ondelete="CASCADE"), nullable=True
-    )
+    carrier_id: Mapped[int] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.now()
     )
@@ -50,8 +48,8 @@ class ttScrTargetTable(Base):
     )
 
 
-class ttScrRunTable(Base):
-    __tablename__ = "tt_scr_runs"
+class ScrRunTable(Base):
+    __tablename__ = "scr_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     target_id: Mapped[int] = mapped_column(
@@ -71,8 +69,8 @@ class ttScrRunTable(Base):
     )
 
 
-class ttScrProcessedTable(Base):
-    __tablename__ = "tt_scr_processed"
+class ScrProcessedTable(Base):
+    __tablename__ = "scr_processed"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     run_id: Mapped[int] = mapped_column(
