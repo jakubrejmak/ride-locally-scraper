@@ -11,7 +11,7 @@ from db.session import session
 from lib.files import save_result
 from lib.scrapers.run_firecrawl import run_firecrawl
 from lib.scrapers.run_scrapling import run_scrapling
-from models.files import ScrRunResult
+from models.files import FileResult
 from models.scrapers import FirecrawlConfig, ScraplingConfig
 from models.targets import NewScrTarget, ScrScriptResult, ScrTargetConfig
 
@@ -127,7 +127,7 @@ async def run_scrape(
             case _:
                 raise ValueError("No scrape method provided")
 
-        if isinstance(result, ScrRunResult):
+        if isinstance(result, FileResult):
             # save the file and point the DB to its location
             if result:
                 filepath = save_result(result, config.SCRAPER_OUTPUT_DIR)

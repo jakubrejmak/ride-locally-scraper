@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from models.files import ScrRunResult
+from models.files import FileResult
 from models.processors import LLMProcessorConfig
 from models.preprocessors import PreprocessorConfig
 from models.scrapers import FirecrawlConfig, ScraplingConfig
@@ -31,4 +31,4 @@ class NewScrTarget(BaseModel):
 class ScrScriptResult(BaseModel):
     new_targets: Optional[list[NewScrTarget]] = None
     self_update: Optional[NewScrTarget] = None
-    run_result: Optional[ScrRunResult] = None
+    run_result: Optional[FileResult] = None

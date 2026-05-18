@@ -15,7 +15,7 @@ from lib.files import read_result, save_result
 from lib.processors.preprocess import preprocess_file
 from lib.processors.process_llm import llm_process_files
 from lib.target_utils import get_target_config
-from models.files import ProcessResult, ScrRunResult
+from models.files import FileResult
 from models.processors import LLMProcessorConfig
 
 log = getLogger(__name__)
@@ -69,7 +69,7 @@ async def run_process(
 
     try:
         target_config = await get_target_config(run.target_id)
-        scr_result = read_result(run.o_filepath, ScrRunResult)
+        scr_result = read_result(run.o_filepath, FileResult)
         if not scr_result:
             raise Exception(
                 f"read_result could not read valid result data from path: '{run.o_filepath}'"
@@ -92,8 +92,8 @@ async def run_process(
             case _:
                 raise ValueError("Unknown processor method")
 
-        if not isinstance(results, ProcessResult):
-            raise ValueError("Processor did not return a valid ProcessResult")
+        if not isinstance(results, FileResult):
+            raise ValueError("Processor did not return a valid FileResult")
 
         filepath = save_result(results, config.PROCESSOR_OUTPUT_DIR)
         if not filepath:

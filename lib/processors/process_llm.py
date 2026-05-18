@@ -1,6 +1,6 @@
 import importlib
 
-from models.files import FileData, ProcessResult, ScrRunResult
+from models.files import FileData, FileResult
 from models.processors import (
     GeminiProviderConfig,
     LLMProcessorConfig,
@@ -35,9 +35,9 @@ def join_filedata_to_text(data: list[FileData]) -> list[FileData]:
 
 
 async def llm_process_files(
-    input: ScrRunResult, processor_config: LLMProcessorConfig
-) -> ProcessResult | None:
-    """Takes list of FileData objects form ScrRunResult, for every one makes an
+    input: FileResult, processor_config: LLMProcessorConfig
+) -> FileResult | None:
+    """Takes list of FileData objects form FileResult, for every one makes an
     API call to configured provider with system_prompt asking to transform FileData
     to structured text description. Joins the results to output one text file
     describing the objects contents.
@@ -52,12 +52,12 @@ async def llm_process_files(
     process_func = getattr(module, "process_image")
     cfg = processor_config.config
 
-    results = ProcessResult(data=[])
+    results = FileResult(data=[])
     for f in input.data:
         # usually preprocess will run deskew on document, then extract each self contained route direction
         resp: str = await process_func(f, cfg)
         if not resp:
-            raise ValueError(f"LLM processor could not produce valid result")
+            raise ValueError("LLM processor could not produce valid result")
 
         result = FileData(mime="text/plain", ext="txt", bytes=resp.encode("utf-8"))
         results.data.append(result)

@@ -5,7 +5,7 @@ import openrouter
 from conf import config
 from lib.llm.openrouter_utils import OpenRouterUtils as utils
 from lib.visual.deskew import deskew_image, rotate_image
-from models.files import FileData, ScrRunResult
+from models.files import FileData, FileResult
 from models.preprocessors import RotationNeededToH
 
 log = getLogger(__name__)
@@ -41,7 +41,7 @@ def _jpeg_to_filedata(jpeg_bytes: bytes) -> FileData:
     return FileData(mime="image/jpeg", ext="jpeg", bytes=jpeg_bytes, description=None)
 
 
-async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
+async def run(input: FileResult, **kwargs) -> FileResult | None:
     """WARNING: before deskew we need to determine text direction
     the table's straight edges, deskew can produce a table that is rotated
     either 0deg or 90deg. need some text recognition first to hint a proper
@@ -72,7 +72,7 @@ async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
         with_description[img] = desc
 
     # 3. Final rotation if needed
-    results: ScrRunResult = ScrRunResult(data=[])
+    results: FileResult = FileResult(data=[])
     for img, desc in with_description.items():
         match desc.to_rotate:
             case "correct":

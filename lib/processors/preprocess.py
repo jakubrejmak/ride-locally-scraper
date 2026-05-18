@@ -3,7 +3,7 @@ import inspect
 from pathlib import Path
 from typing import Callable
 
-from models.files import ScrRunResult
+from models.files import FileResult
 from models.preprocessors import PreprocessorConfig, PreprocessorTool
 
 LIB_ROOT = Path("lib")
@@ -46,8 +46,8 @@ def _resolve_preprocessor(tool: PreprocessorTool) -> Callable:
 
 
 async def preprocess_file(
-    data: ScrRunResult, config: PreprocessorConfig
-) -> ScrRunResult | None:
+    data: FileResult, config: PreprocessorConfig
+) -> FileResult | None:
     if not config.tools:
         return None
 

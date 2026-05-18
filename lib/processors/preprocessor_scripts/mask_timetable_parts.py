@@ -26,7 +26,7 @@ from visual.pdf import pdf_to_jpg
 
 from conf import config
 from lib.llm.openrouter_utils import OpenRouterUtils as utils
-from models.files import FileData, ScrRunResult
+from models.files import FileData, FileResult
 from models.preprocessors import Region, RegionType, TimetableRegions
 
 log = getLogger(__name__)
@@ -225,7 +225,7 @@ def _compose_timetable_for_direction(
     return output_data
 
 
-async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
+async def run(input: FileResult, **kwargs) -> FileResult | None:
     """Process a timetable document and extract route directions as separate images.
 
     Accepts a PDF or JPEG timetable, uses an LLM to identify region bounding boxes
@@ -233,11 +233,11 @@ async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
     for each route direction by assembling the relevant squares from source pages.
 
     Args:
-        input: ScrRunResult containing a single FileData object (PDF or JPEG)
+        input: FileResult containing a single FileData object (PDF or JPEG)
         **kwargs: keyword arguments including 'script_config' for LLM settings
 
     Returns:
-        ScrRunResult with list of FileData objects, one per time_grid direction,
+        FileResult with list of FileData objects, one per time_grid direction,
         or None if no valid regions found
 
     Raises:
@@ -273,4 +273,4 @@ async def run(input: ScrRunResult, **kwargs) -> ScrRunResult | None:
     # header, direction (aka time_grid), footer
     output_data: list[FileData] = _compose_timetable_for_direction(region_data)
 
-    return ScrRunResult(data=output_data)
+    return FileResult(data=output_data)
