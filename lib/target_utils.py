@@ -7,7 +7,7 @@ from sqlalchemy import select
 from conf import config
 from db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from db.session import session
-from lib.files import diff_results
+from lib.files import read_result
 from models.targets import ScrTargetConfig
 
 ###
@@ -82,9 +82,21 @@ async def get_due_scraper_targets() -> list[ScrTargetTable]:
 ###
 
 
-def _is_scrape_run_updated(run1: ScrRunTable, run2: ScrRunTable) -> bool:
-    # TODO return true if run1 and run2 are different
-    pass
+def _did_content_change(run1: ScrRunTable, run2: ScrRunTable) -> bool:
+    if not run1.o_filepath or not run2.o_filepath:
+        raise ValueError("Diffed runs have no output filepath assigned")
+
+    fr1 = read_result(run1.o_filepath)
+    fr2 = read_result(run2.o_filepath)
+
+    if not fr1 or not fr2:
+        raise Exception("Could not read result from filepaths")
+
+    for fd1, fd2 in zip(fr1.data, fr2.data):
+        if fd1 != fd2:
+            return True
+
+    return False
 
 
 async def get_due_processor_targets() -> list[ScrRunTable]:
@@ -110,7 +122,7 @@ async def get_due_processor_targets() -> list[ScrRunTable]:
             r = await s.execute(q)
             prev_run = r.scalar_one_or_none()
 
-        if not prev_run or _is_scrape_run_updated(run, prev_run):
+        if not prev_run or _did_content_change(run, prev_run):
             to_process.append(run)
 
-    return []
+    return to_process

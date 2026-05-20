@@ -2,7 +2,7 @@ import mimetypes
 import os
 import uuid
 from pathlib import Path
-from typing import TypeVar, TypedDict, Any
+from typing import TypeVar
 
 import magic
 
@@ -72,7 +72,9 @@ def save_result(result: FileResult, directory: str) -> str | None:
         return str(nest_dir)
 
 
-def read_result(filepath: str, result_type: type[TResult] = FileResult) -> TResult | None:
+def read_result(
+    filepath: str, result_type: type[TResult] = FileResult
+) -> TResult | None:
     if os.path.isfile(filepath):
         file_data = read_file_data(filepath)
         if file_data is None:
@@ -92,24 +94,3 @@ def read_result(filepath: str, result_type: type[TResult] = FileResult) -> TResu
 def enforce_same_mime(file_data: list[FileData]) -> list[FileData]:
     first_mime = file_data[0].mime
     return [f for f in file_data if f.mime == first_mime]
-
-
-class ResultDiff(TypedDict):
-    previous: Any
-    current: Any
-
-def diff_results(filepath_1: str, filepath_2: str) -> list[ResultDiff]:
-    filedata1 = read_result(filepath_1)
-    filedata2 = read_result(filepath_2)
-
-    if not filedata1 or filedata2:
-        missing = [p for p in [filedata1, filedata2] if p is None]
-        raise Exception(f"Could not read results from filepath(s): {missing}")
-
-    result: list[ResultDiff] = []
-
-    for fd in filedata1:
-        # TODO: construct diff
-        pass
-
-    return result
