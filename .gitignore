@@ -1,7 +1,10 @@
+.DS_Store
+
 .env
 
 .venv
 __pycache__
+*.egg-info
 
 scrapling_scripts
 processor_prompts

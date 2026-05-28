@@ -20,12 +20,12 @@ logging.basicConfig(
 _shutdown = asyncio.Event()
 
 
-def _handle_sig():
+def _handle_sig() -> None:
     log.info("shutdown signal received")
     _shutdown.set()
 
 
-async def main():
+async def run() -> None:
     loop = asyncio.get_running_loop()
 
     for sig in (signal.SIGTERM, signal.SIGINT):
@@ -40,5 +40,9 @@ async def main():
     )
 
 
+def main() -> None:
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

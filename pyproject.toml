@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ride-locally-scraper"
+version = "0.1.0"
+description = "Ride Locally scraping and processing service"
+requires-python = ">=3.10"
+dependencies = [
+    "sqlalchemy",
+    "asyncpg",
+    "alembic",
+    "python-dotenv",
+    "scrapling",
+    "playwright",
+    "browserforge",
+    "msgspec",
+    "patchright",
+    "curl_cffi",
+    "croniter",
+    "pydantic",
+    "typing-extensions",
+    "xlrd",
+    "python-magic",
+    "numpy",
+    "deskew",
+    "openrouter",
+    "pillow",
+    "scikit-image",
+    "pymupdf",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[tool.setuptools]
+py-modules = ["conf"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["models*", "db*"]

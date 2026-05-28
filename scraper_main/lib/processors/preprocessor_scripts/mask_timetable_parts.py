@@ -16,16 +16,16 @@ from logging import getLogger
 from typing import get_args
 
 import openrouter
-from visual.image_utils import (
+from lib.llm.openrouter_utils import OpenRouterUtils as utils
+from lib.visual.image_utils import (
     crop_image_to_square,
     region_to_square,
     stack_images_horizontal,
     stack_images_vertical,
 )
-from visual.pdf import pdf_to_jpg
+from lib.visual.pdf import pdf_to_jpg
 
 from conf import config
-from lib.llm.openrouter_utils import OpenRouterUtils as utils
 from models.files import FileData, FileResult
 from models.preprocessors import Region, RegionType, TimetableRegions
 
