@@ -3,7 +3,7 @@
 #   either static analysis or with the help of the llm
 ###
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from logging import getLogger
 
 from sqlalchemy import select
@@ -36,7 +36,7 @@ async def _get_process_row(run: ScrRunTable) -> ScrProcessedTable:
             run_id=run.id,
             target_id=run.target_id,
             o_filepath=None,
-            started_at=datetime.now(UTC),
+            started_at=datetime.now(timezone.utc),
         )
 
     to_process.status = ProcessStatus.running
@@ -51,7 +51,7 @@ async def _get_process_row(run: ScrRunTable) -> ScrProcessedTable:
 async def _mark_as_error(run: ScrProcessedTable, message: str | None):
     async with session() as s:
         run.status = ProcessStatus.failed
-        run.finished_at = datetime.now(UTC)
+        run.finished_at = datetime.now(timezone.utc)
         run.error_message = message
         s.add(run)
         await s.commit()
@@ -101,7 +101,7 @@ async def run_process(
 
         async with session() as s:
             to_process.status = ProcessStatus.success
-            to_process.finished_at = datetime.now(UTC)
+            to_process.finished_at = datetime.now(timezone.utc)
             to_process.o_filepath = filepath
             await s.commit()
 

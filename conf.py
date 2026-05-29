@@ -1,6 +1,6 @@
 import os
 from dataclasses import MISSING, dataclass, fields
-from typing import Any, Self, get_type_hints
+from typing import Any, get_type_hints
 
 from dotenv import load_dotenv
 
@@ -15,6 +15,10 @@ def _parse(typ: type[Any], raw: str) -> Any:
 
 @dataclass
 class Config:
+    JWT_SECRET: str
+    JWT_ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+
     OPENROUTER_API_KEY: str
     DATABASE_URL: str
     ALEMBIC_DATABASE_URL: str
@@ -30,8 +34,12 @@ class Config:
     SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
     PROCESSOR_OUTPUT_DIR: str = "output_files/processor"
 
+    API_HOST: str = "127.0.0.1"
+    API_PORT: int = 8000
+    API_RELOAD: bool = True
+
     @classmethod
-    def from_env(cls) -> Self:
+    def from_env(cls):
         values: dict[str, Any] = {}
         type_hints = get_type_hints(cls)
         for f in fields(cls):

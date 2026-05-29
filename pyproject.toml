@@ -35,6 +35,8 @@ dependencies = [
 api = [
     "fastapi",
     "uvicorn[standard]",
+    "passlib[bcrypt]",
+    "pyjwt",
 ]
 
 [tool.setuptools]

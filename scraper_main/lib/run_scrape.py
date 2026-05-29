@@ -2,7 +2,7 @@
 #   scraper service
 ###
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from logging import getLogger
 
 from conf import config
@@ -97,7 +97,7 @@ async def handle_new_targets(
 async def _mark_as_error(run: ScrRunTable, message: str | None):
     async with session() as s:
         run.status = ScrapeStatus.failed
-        run.finished_at = datetime.now(UTC)
+        run.finished_at = datetime.now(timezone.utc)
         run.error_message = message
         s.add(run)
         await s.commit()
@@ -111,7 +111,7 @@ async def run_scrape(
     # create run row in ScrRunTable and save the result into its output
     run = ScrRunTable(target_id=target.id)
     run.status = ScrapeStatus.running
-    run.started_at = datetime.now(UTC)
+    run.started_at = datetime.now(timezone.utc)
     async with session() as s:
         s.add(run)
         await s.commit()
@@ -144,7 +144,7 @@ async def run_scrape(
 
         async with session() as s:
             run.status = ScrapeStatus.success
-            run.finished_at = datetime.now(UTC)
+            run.finished_at = datetime.now(timezone.utc)
             s.add(run)
             await s.commit()
 
