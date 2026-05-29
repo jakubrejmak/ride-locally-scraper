@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-from conf import config as app_config
-from db.schema import Base
+from ride_locally.config import config as app_config
+from ride_locally.db.schema import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -39,6 +39,7 @@ SCRAPER_TABLES = {
     "scr_targets",
     "scr_runs",
     "scr_processed",
+    "scr_api_users",
 }
 
 

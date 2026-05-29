@@ -8,12 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml conf.py ./
-COPY models db ./
+COPY pyproject.toml .
+COPY src src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system ".[api]"
 
-COPY . .
+COPY alembic alembic
+COPY alembic.ini .
+COPY .env.docker .env.docker
 
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app

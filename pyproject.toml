@@ -39,9 +39,9 @@ api = [
     "pyjwt",
 ]
 
-[tool.setuptools]
-py-modules = ["conf"]
+[project.scripts]
+ride-locally-api = "ride_locally.api.main:main"
+ride-locally-worker = "ride_locally.worker.main:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["models*", "db*"]
+where = ["src"]
