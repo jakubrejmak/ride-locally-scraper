@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from ride_locally.models.files import FileResult
-from ride_locally.models.processors import LLMProcessorConfig
 from ride_locally.models.preprocessors import PreprocessorConfig
+from ride_locally.models.processors import LLMProcessorConfig
 from ride_locally.models.scrapers import FirecrawlConfig, ScraplingConfig
 
 
