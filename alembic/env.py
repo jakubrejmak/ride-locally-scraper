@@ -6,7 +6,6 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
 from ride_locally.config import config as app_config
 from ride_locally.db.schema import Base
 

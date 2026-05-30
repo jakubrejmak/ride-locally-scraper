@@ -37,8 +37,8 @@ class TimetableRegions(BaseModel):
 
 
 class RotationNeededToH(BaseModel):
-    to_rotate: Literal["correct", "rotate_90", "rotate_180", "rotate_270", "other"] = Field(
-        description="The amount to rotate the image so the text is horizontal"
+    to_rotate: Literal["correct", "rotate_90", "rotate_180", "rotate_270", "other"] = (
+        Field(description="The amount to rotate the image so the text is horizontal")
     )
 
 

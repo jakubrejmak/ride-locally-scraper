@@ -48,7 +48,9 @@ async def llm_process_files(
             f"LLM config type: '{type(processor_config.config).__name__}' not supported"
         )
 
-    module = importlib.import_module(f"lib.processors.{target_processor}")
+    module = importlib.import_module(
+        f"ride_locally.worker.processors.{target_processor}"
+    )
     process_func = getattr(module, "process_image")
     cfg = processor_config.config
 

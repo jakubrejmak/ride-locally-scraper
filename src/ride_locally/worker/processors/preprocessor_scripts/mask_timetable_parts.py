@@ -13,9 +13,13 @@
 ###
 
 from logging import getLogger
-from typing import get_args
+from typing import TypeAlias, get_args
 
 import openrouter
+
+from ride_locally.config import config
+from ride_locally.models.files import FileData, FileResult
+from ride_locally.models.preprocessors import Region, RegionType, TimetableRegions
 from ride_locally.worker.llm.openrouter_utils import OpenRouterUtils as utils
 from ride_locally.worker.visual.image_utils import (
     crop_image_to_square,
@@ -25,14 +29,10 @@ from ride_locally.worker.visual.image_utils import (
 )
 from ride_locally.worker.visual.pdf import pdf_to_jpg
 
-from ride_locally.config import config
-from ride_locally.models.files import FileData, FileResult
-from ride_locally.models.preprocessors import Region, RegionType, TimetableRegions
-
 log = getLogger(__name__)
 
 
-type RegionData = dict[bytes, TimetableRegions | None]
+RegionData: TypeAlias = dict[bytes, TimetableRegions | None]
 
 
 async def _get_region_descriptions(data: bytes, cfg):
@@ -139,8 +139,8 @@ def _get_imgs_by_type(type: str, region_data: RegionData):
     return result
 
 
-type DirectionImage = tuple[str, bytes]
-type DirectionsData = dict[int, list[DirectionImage]]
+DirectionImage: TypeAlias = tuple[str, bytes]
+DirectionsData: TypeAlias = dict[int, list[DirectionImage]]
 
 
 def _compose_timetable_for_direction(
