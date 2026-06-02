@@ -73,7 +73,7 @@ def save_result(result: FileResult, directory: str) -> str | None:
 
 
 def read_result(
-    filepath: str, result_type: type[TResult] = FileResult
+        filepath: str, result_type: type[TResult] = FileResult
 ) -> TResult | None:
     if os.path.isfile(filepath):
         file_data = read_file_data(filepath)
@@ -94,3 +94,17 @@ def read_result(
 def enforce_same_mime(file_data: list[FileData]) -> list[FileData]:
     first_mime = file_data[0].mime
     return [f for f in file_data if f.mime == first_mime]
+
+
+def diff_file_results(f1: str, f2: str) -> bool:
+    fr1 = read_result(f1)
+    fr2 = read_result(f2)
+
+    if not fr1 or not fr2:
+        raise Exception("Could not read result from filepaths")
+
+    for fd1, fd2 in zip(fr1.data, fr2.data):
+        if fd1 != fd2:
+            return True
+
+    return False

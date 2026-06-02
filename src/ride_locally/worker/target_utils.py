@@ -7,8 +7,8 @@ from sqlalchemy import select
 from ride_locally.config import config
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.worker.files import read_result
 from ride_locally.models.targets import ScrTargetConfig
+from ride_locally.worker.files import diff_file_results
 
 ###
 # shared target utils
@@ -82,23 +82,6 @@ async def get_due_scraper_targets() -> list[ScrTargetTable]:
 ###
 
 
-def _did_content_change(run1: ScrRunTable, run2: ScrRunTable) -> bool:
-    if not run1.o_filepath or not run2.o_filepath:
-        raise ValueError("Diffed runs have no output filepath assigned")
-
-    fr1 = read_result(run1.o_filepath)
-    fr2 = read_result(run2.o_filepath)
-
-    if not fr1 or not fr2:
-        raise Exception("Could not read result from filepaths")
-
-    for fd1, fd2 in zip(fr1.data, fr2.data):
-        if fd1 != fd2:
-            return True
-
-    return False
-
-
 async def get_due_processor_targets() -> list[ScrRunTable]:
     """Returns a list of `all` active targets that are due to be processed."""
 
@@ -122,7 +105,10 @@ async def get_due_processor_targets() -> list[ScrRunTable]:
             r = await s.execute(q)
             prev_run = r.scalar_one_or_none()
 
-        if not prev_run or _did_content_change(run, prev_run):
+        if not run.o_filepath or not prev_run or not prev_run.o_filepath:
+            raise ValueError("Diffed runs have no output filepath assigned")
+
+        if not prev_run or diff_file_results(run.o_filepath, prev_run.o_filepath):
             to_process.append(run)
 
     return to_process

@@ -1,11 +1,12 @@
 import importlib.util
 import inspect
 
-from ride_locally.worker.files import mime_from_bytes
+from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
+
 from ride_locally.models.files import FileData, FileResult
 from ride_locally.models.scrapers import ScraplingConfig
 from ride_locally.models.targets import ScrScriptResult
-from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
+from ride_locally.worker.files import mime_from_bytes
 
 FETCHERS = {
     "AsyncFetcher": AsyncFetcher,
@@ -23,11 +24,9 @@ async def _execute_script(
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    if not hasattr(module, "run"):
-        raise ValueError(f"{filepath} must define 'async def run(fetcher, url)'")
-
     sig = inspect.signature(module.run)
-    if list(sig.parameters) != ["fetcher", "url"]:
+
+    if not hasattr(module, "run") or list(sig.parameters) != ["fetcher", "url"]:
         raise ValueError(f"{filepath} must define 'async def run(fetcher, url)'")
 
     return await module.run(fetcher, url)
@@ -59,7 +58,11 @@ async def run_scrapling(
             raise Exception("Content type could not be inferred")
         expected = config.force_mime
         if expected and expected != got_mime:
-            raise ValueError(f"The forced mime type: '{expected}' is different than the type got: '{got_mime}'")
-        result = FileResult(data=[FileData(mime=got_mime, ext=got_ext, bytes=page.body)])
+            raise ValueError(
+                f"The forced mime type: '{expected}' is different than the type got: '{got_mime}'"
+            )
+        result = FileResult(
+            data=[FileData(mime=got_mime, ext=got_ext, bytes=page.body)]
+        )
 
     return result
