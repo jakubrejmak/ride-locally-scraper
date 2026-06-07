@@ -9,13 +9,13 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class LoginRequest(BaseModel):
-    email: Optional[str]
-    username: Optional[str]
+    email: Optional[str] = None
+    username: Optional[str] = None
     password: str
 
     @model_validator(mode="after")
     def email_or_username(self) -> "LoginRequest":
-        if not self.username and not self.password:
+        if not self.username and not self.email:
             raise ValueError("The request must contain either an 'email' or 'username'")
         return self
 

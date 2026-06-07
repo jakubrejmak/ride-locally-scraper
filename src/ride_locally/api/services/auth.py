@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from passlib.context import CryptContext
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from sqlalchemy import select
 
 from ride_locally.config import config
 from ride_locally.db.schema import ApiUserTable
 from ride_locally.db.session import session
 
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+ph = PasswordHasher()
 
 
 def create_token(user_id: int) -> str:
@@ -32,7 +33,9 @@ async def auth_user(
 
     if user is None:
         return None
-    if not pwd_ctx.verify(password, user.password_hash):
+    try:
+        ph.verify(user.password_hash, password)
+    except VerifyMismatchError:
         return None
 
     return user

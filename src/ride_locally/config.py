@@ -1,20 +1,17 @@
-import os
-from dataclasses import MISSING, dataclass, fields
-from typing import Any, get_type_hints
+from pathlib import Path
 
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-load_dotenv()
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _parse(typ: type[Any], raw: str) -> Any:
-    if typ is bool:
-        return raw.strip().lower() in ("1", "true", "yes", "on")
-    return typ(raw)
+class Config(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=_PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
-
-@dataclass
-class Config:
     JWT_SECRET: str
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
@@ -23,10 +20,10 @@ class Config:
     DATABASE_URL: str
     ALEMBIC_DATABASE_URL: str
 
-    SCRAPER_POLL_INTERVAL: int = 3600  # seconds
+    SCRAPER_POLL_INTERVAL: int = 3600
     SCRAPER_WORKER_COUNT: int = 4
 
-    PROCESSOR_POLL_INTERVAL: int = 3600  # seconds
+    PROCESSOR_POLL_INTERVAL: int = 3600
     PROCESSOR_WORKER_COUNT: int = 4
 
     DEBUG_OUTPUTS: bool = True
@@ -34,31 +31,13 @@ class Config:
     SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
     PROCESSOR_OUTPUT_DIR: str = "output_files/processor"
 
+    API_ADMIN_EMAIL: str = "admin@email.com"
+    API_ADMIN_USERNAME: str = "admin"
+    API_ADMIN_PASSWORD: str = "changeme"
     API_HOST: str = "127.0.0.1"
     API_PORT: int = 8000
     API_RELOAD: bool = True
-
-    @classmethod
-    def from_env(cls):
-        values: dict[str, Any] = {}
-        type_hints = get_type_hints(cls)
-        for f in fields(cls):
-            raw = os.environ.get(f.name)
-            typ = type_hints.get(f.name)
-            if raw is not None:
-                if isinstance(typ, type):
-                    values[f.name] = _parse(typ, raw)
-                else:
-                    values[f.name] = raw
-            elif f.default is not MISSING:
-                values[f.name] = f.default
-            elif f.default_factory is not MISSING:
-                values[f.name] = f.default_factory()
-            else:
-                raise RuntimeError(
-                    f"Missing required environment variable {f.name!r}"
-                ) from None
-        return cls(**values)
+    API_ALLOWED_ORIGINS: list[str] = ["http://localhost:5173"]
 
 
-config = Config.from_env()
+config = Config()
