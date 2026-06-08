@@ -8,9 +8,15 @@ type LoginBody = {
 
 type TokenResponse = {
   access_token: string;
+  expires_at: string;
   token_type: string;
 }
 
+
+export function logout(): void {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("access_token_expires");
+}
 
 export async function login(body: LoginBody): Promise<TokenResponse> {
   const res = await fetch(apiUrl("/auth/login"), {

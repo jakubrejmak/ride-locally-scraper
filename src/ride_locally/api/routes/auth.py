@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
@@ -23,6 +24,7 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    expires_at: datetime
 
 
 @router.post("/login")
@@ -36,6 +38,6 @@ async def login(body: LoginRequest) -> TokenResponse:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
 
-    token = create_token(user.id)
+    token, expires_at = create_token(user.id)
 
-    return TokenResponse(access_token=token)
+    return TokenResponse(access_token=token, expires_at=expires_at)

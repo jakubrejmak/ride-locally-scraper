@@ -27,14 +27,14 @@ function ToastIcon({ variant }: { variant: Toast["variant"] }) {
     case "success":
       return (
         <CheckCircle2
-          className="mt-0.5 size-5 shrink-0 text-emerald-300"
+          className="mt-0.5 size-5 shrink-0 text-accent-light"
           aria-hidden="true"
         />
       );
     default:
       return (
         <Info
-          className="mt-0.5 size-5 shrink-0 text-teal-300"
+          className="mt-0.5 size-5 shrink-0 text-accent"
           aria-hidden="true"
         />
       );
@@ -46,9 +46,9 @@ function toastClasses(variant: Toast["variant"]) {
     case "error":
       return "border-red-400/30 bg-red-500/15 text-red-50";
     case "success":
-      return "border-emerald-300/30 bg-emerald-500/15 text-emerald-50";
+      return "border-accent-light/30 bg-accent/15 text-orange-50";
     default:
-      return "border-teal-300/30 bg-teal-500/15 text-teal-50";
+      return "border-accent/30 bg-accent-dark/15 text-orange-50";
   }
 }
 
@@ -84,7 +84,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={toast.id}
             role="status"
             className={[
-              "pointer-events-auto rounded-2xl border px-4 py-3 shadow-lg backdrop-blur-xl",
+              "glass-panel pointer-events-auto rounded-2xl px-4 py-3",
               toastClasses(toast.variant),
             ].join(" ")}
           >

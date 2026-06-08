@@ -12,12 +12,14 @@ from ride_locally.db.session import session
 ph = PasswordHasher()
 
 
-def create_token(user_id: int) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(config.ACCESS_TOKEN_EXPIRE_MINUTES)
+def create_token(user_id: int) -> tuple[str, datetime]:
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
 
     payload = {"sub": str(user_id), "exp": expire}
 
-    return jwt.encode(payload, config.JWT_SECRET, config.JWT_ALGORITHM)
+    return jwt.encode(payload, config.JWT_SECRET, config.JWT_ALGORITHM), expire
 
 
 async def auth_user(

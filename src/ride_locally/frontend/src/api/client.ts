@@ -1,3 +1,5 @@
+import { logout } from "./auth";
+
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export function apiUrl(path: string): string {
@@ -19,6 +21,11 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      logout();
+      window.location.href = "/login";
+      return;
+    }
     throw new Error(await res.text());
   }
 
