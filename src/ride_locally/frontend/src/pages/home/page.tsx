@@ -1,9 +1,11 @@
 import Layout from "../../components/Layout/Layout";
+import Background from "../../components/Background/Background";
 
 export default function Home() {
   return (
     <Layout>
-      <div className="glass-panel relative rounded-3xl p-8 before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent-light/40 before:to-transparent">
+      <Background />
+      <div className="panel">
         <p className="mb-2 text-xs font-medium uppercase tracking-[0.2em] text-accent-light/80">
           Dashboard
         </p>
@@ -20,7 +22,7 @@ export default function Home() {
             { label: "Last scrape", value: "—" },
             { label: "Pending jobs", value: "—" },
           ].map((card) => (
-            <div key={card.label} className="glass-inset rounded-2xl p-5">
+            <div key={card.label} className="card">
               <p className="text-sm text-white/50">{card.label}</p>
               <p className="mt-2 text-2xl font-semibold text-white">
                 {card.value}

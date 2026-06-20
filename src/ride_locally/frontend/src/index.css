@@ -5,6 +5,11 @@
   --color-surface-elevated: #1c1612;
   --color-surface-text: #faf7f4;
 
+  /* warm-neutral text ramp (low chroma, tuned to the brown surface) */
+  --color-muted: #b4a79b;
+  --color-subtle: #8c8076;
+  --color-hint: #766a5f;
+
   --color-accent: #f97316;
   --color-accent-light: #fdba74;
   --color-accent-dark: #c2410c;
@@ -39,4 +44,58 @@
   border-color: rgb(253 186 116 / 0.12);
   background-color: rgb(0 0 0 / 0.2);
   backdrop-filter: blur(12px);
+}
+
+@utility panel {
+  @apply glass-panel relative rounded-3xl p-8;
+  @apply before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px;
+  @apply before:bg-linear-to-r before:from-transparent before:via-accent-light/40 before:to-transparent;
+}
+
+@utility tab-active {
+  @apply flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition;
+  @apply border-accent-light/30 bg-accent/15 text-white backdrop-blur-sm;
+  @apply shadow-[0_4px_20px_rgba(249,115,22,0.15)];
+}
+
+@utility tab-inactive {
+  @apply flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition;
+  @apply border-transparent text-white/60;
+  @apply hover:border-accent-light/15 hover:bg-white/5 hover:text-white;
+}
+
+/* Solid, high-emphasis action. Hover is overridable via --btn-hover-* vars. */
+/* Primary action: solid accent fill with a soft orange glow. */
+@utility btn-primary {
+  @apply inline-flex items-center gap-2 rounded-xl px-4 py-2.5;
+  @apply border border-accent-light/30 bg-accent text-sm font-medium text-white transition;
+  @apply shadow-[0_4px_20px_rgba(249,115,22,0.25)];
+  @apply hover:bg-accent-dark hover:border-accent-light/40 hover:shadow-[0_6px_24px_rgba(249,115,22,0.35)];
+  @apply disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent;
+}
+
+/* Secondary action: quiet outlined glass, brightens on hover. */
+@utility btn-secondary {
+  @apply inline-flex items-center gap-2 rounded-xl px-4 py-2.5;
+  @apply border border-accent-light/20 text-sm font-medium text-white/75 transition;
+  @apply hover:border-accent-light/40 hover:bg-white/5 hover:text-white;
+  @apply disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Destructive sibling of btn-secondary: same shape, red hover. */
+@utility btn-secondary-danger {
+  @apply inline-flex items-center gap-2 rounded-xl px-4 py-2.5;
+  @apply border border-accent-light/20 text-sm font-medium text-white/75 transition;
+  @apply hover:border-red-300/30 hover:bg-red-500/10 hover:text-red-100;
+  @apply disabled:cursor-not-allowed disabled:opacity-50;
+}
+/* Inset tile for stats / sub-content inside panels. */
+@utility card {
+  @apply glass-inset rounded-2xl p-5;
+}
+
+@utility text-input {
+  @apply glass-inset rounded-xl px-3 py-2 text-sm text-surface-text;
+  @apply placeholder-hint transition outline-none;
+  @apply focus:border-accent-light/40 focus:bg-black/30;
 }

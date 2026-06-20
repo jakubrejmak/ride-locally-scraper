@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { logout } from "../../api/auth";
-import Background from "../Background/Background";
 import {
   Home,
   LogOut,
@@ -31,7 +30,6 @@ export default function Layout({
 
   return (
     <div className="relative flex min-h-screen overflow-hidden bg-surface text-surface-text">
-      <Background />
 
       <nav
         className={`glass-panel relative z-20 flex h-screen shrink-0 flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ${isOpen ? "w-64 items-start px-4" : "w-16 items-center px-2"}`}
@@ -65,11 +63,7 @@ export default function Layout({
               end={to === "/"}
               title={label}
               className={({ isActive }) =>
-                `flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition ${isOpen ? "justify-start" : "justify-center"} ${
-                  isActive
-                    ? "border-accent-light/30 bg-accent/15 text-white shadow-[0_4px_20px_rgba(249,115,22,0.15)] backdrop-blur-sm"
-                    : "border-transparent text-white/60 hover:border-accent-light/15 hover:bg-white/5 hover:text-white"
-                }`
+                `${isActive ? "tab-active" : "tab-inactive"} ${isOpen ? "justify-start" : "justify-center"}`
               }
             >
               <Icon size={18} className="shrink-0" />
@@ -85,7 +79,7 @@ export default function Layout({
             navigate("/login", { replace: true });
           }}
           title="Log out"
-          className={`glass-inset mb-4 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/70 transition hover:border-red-300/30 hover:bg-red-500/10 hover:text-red-100 ${isOpen ? "justify-start" : "justify-center"}`}
+          className={`btn-secondary-danger mb-4 w-full ${isOpen ? "justify-start" : "justify-center"}`}
         >
           <LogOut size={18} className="shrink-0" />
           {isOpen && <span>Log out</span>}

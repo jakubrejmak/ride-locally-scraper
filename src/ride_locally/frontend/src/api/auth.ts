@@ -1,10 +1,16 @@
 import { apiUrl } from "./client";
+import { z } from "zod";
 
-type LoginBody = {
-  email?: string;
-  username?: string;
-  password?: string;
-}
+const LoginBodySchema = z.object({
+  email: z.email().optional(),
+  username: z.string().optional(),
+  password: z.string(),
+}).refine(
+  (data) => data.email || data.username,
+  { error: "Email or username required" }
+)
+
+type LoginBody = z.infer<typeof LoginBodySchema>
 
 type TokenResponse = {
   access_token: string;
@@ -19,6 +25,13 @@ export function logout(): void {
 }
 
 export async function login(body: LoginBody): Promise<TokenResponse> {
+  const parsed = LoginBodySchema.safeParse(body);
+
+  if (!parsed.success) {
+    throw new Error(
+      parsed.error.issues.map((issue) => issue.message).join(", ")
+    );
+  }
   const res = await fetch(apiUrl("/auth/login"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -26,7 +39,8 @@ export async function login(body: LoginBody): Promise<TokenResponse> {
   })
 
   if (!res.ok) {
-    throw new Error((await res.json())["detail"])
+    const error = await res.json();
+    throw new Error(error.detail ?? "Login failed");
   }
 
   return res.json();
