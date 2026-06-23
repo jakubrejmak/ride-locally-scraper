@@ -28,6 +28,10 @@ class NewScrTarget(BaseModel):
     carrier_id: Optional[int] = None
 
 
+class ScrTarget(NewScrTarget):
+    id: int
+
+
 class ScrScriptResult(BaseModel):
     new_targets: Optional[list[NewScrTarget]] = None
     self_update: Optional[NewScrTarget] = None

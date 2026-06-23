@@ -43,11 +43,13 @@ export default function Login() {
   return (
     <>
       <Background />
-      <div className="flex min-h-screen items-center justify-center">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3 panel p-6 rounded-2xl">
-          <input name="email" type="text" placeholder="you@example.com" className="text-input" />
-          <input name="pass" type="password" placeholder="•••••" className="text-input" />
-          <button type="submit" disabled={loading} className="btn-primary justify-center">{loading ? <Loader2 size={18} /> : "Log In"}</button>
+      <div className="flex min-h-screen items-stretch justify-center sm:items-center sm:px-6">
+        <form onSubmit={handleSubmit} className="flex min-h-screen w-full flex-col justify-center gap-3 px-6 py-8 sm:min-h-0 sm:max-w-md sm:panel sm:rounded-2xl sm:p-6">
+          <label htmlFor="email" className="text-white">Email</label>
+          <input id="email" name="email" type="text" placeholder="you@example.com" className="text-input" />
+          <label htmlFor="pass" className="text-white">Password</label>
+          <input id="pass" name="pass" type="password" placeholder="•••••" className="text-input" />
+          <button type="submit" disabled={loading} className="btn-primary justify-center mt-3">{loading ? <Loader2 size={18} /> : "Log In"}</button>
         </form>
       </div>
     </>

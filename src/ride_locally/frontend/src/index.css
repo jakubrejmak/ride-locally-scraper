@@ -95,7 +95,90 @@
 }
 
 @utility text-input {
-  @apply glass-inset rounded-xl px-3 py-2 text-sm text-surface-text;
+  @apply glass-inset rounded-xl px-3 py-2.5 text-sm text-surface-text;
   @apply placeholder-hint transition outline-none;
   @apply focus:border-accent-light/40 focus:bg-black/30;
+}
+
+@utility select-input {
+  @apply text-input appearance-none pr-10;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgb(253 186 116 / 0.8) 50%),
+    linear-gradient(-45deg, transparent 50%, rgb(253 186 116 / 0.8) 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 1px),
+    calc(100% - 12px) calc(50% - 1px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+@utility checkbox-input {
+  @apply size-5 appearance-none rounded-md border border-accent-light/20 bg-black/20 align-middle transition outline-none;
+  display: inline-grid;
+  place-content: center;
+
+  &:focus-visible {
+    border-color: rgb(253 186 116 / 0.4);
+    box-shadow: 0 0 0 3px rgb(249 115 22 / 0.2);
+  }
+
+  &::before {
+    content: "";
+    width: 0.65rem;
+    height: 0.65rem;
+    transform: scale(0);
+    transition: transform 140ms ease;
+    transform-origin: center;
+    clip-path: polygon(14% 44%, 0 59%, 43% 100%, 100% 23%, 84% 9%, 43% 71%);
+    box-shadow: inset 1em 1em white;
+  }
+
+  &:checked {
+    border-color: rgb(253 186 116 / 0.45);
+    background-color: rgb(249 115 22 / 0.25);
+  }
+
+  &:checked::before {
+    transform: scale(1);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+@utility radio-input {
+  @apply size-5 appearance-none rounded-full border border-accent-light/20 bg-black/20 align-middle transition outline-none;
+  display: inline-grid;
+  place-content: center;
+
+  &:focus-visible {
+    border-color: rgb(253 186 116 / 0.4);
+    box-shadow: 0 0 0 3px rgb(249 115 22 / 0.2);
+  }
+
+  &::before {
+    content: "";
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 9999px;
+    transform: scale(0);
+    transition: transform 140ms ease;
+    background: white;
+  }
+
+  &:checked {
+    border-color: rgb(253 186 116 / 0.45);
+    background-color: rgb(249 115 22 / 0.25);
+  }
+
+  &:checked::before {
+    transform: scale(1);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 }

@@ -9,7 +9,7 @@ export default function Targets(): React.ReactElement {
   return (
     <Layout>
       <Background />
-      <div className="panel">
+      <div className="panel h-full min-h-0 flex flex-col">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-semibold tracking-tight text-white">
             All targets
@@ -24,7 +24,9 @@ export default function Targets(): React.ReactElement {
           </NavLink>
         </div>
         <hr className="my-6 border-t border-accent-light/40" />
-        <TargetList />
+        <div className="flex-1 min-h-0">
+          <TargetList />
+        </div>
       </div>
     </Layout>
   );
