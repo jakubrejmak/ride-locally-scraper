@@ -13,15 +13,17 @@ export default function TargetList(): React.ReactNode {
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
   const perPage = 10;
+  const [total, setTotal] = useState<number>(0);
   const [isActive, setIsActive] = useState<boolean>(false);
   const debouncedSearch = useDebounced(search, 300);
   const toast = useContext(ToastContext);
 
   useEffect(() => {
     setLoading(true);
-    get_targets({ offset: page - 1, limit: perPage, search: debouncedSearch.trim(), is_active: isActive })
-      .then((ts) => {
-        setTargets(ts);
+    get_targets({ page, per_page: perPage, search: debouncedSearch.trim(), is_active: isActive })
+      .then((payload) => {
+        setTargets(payload.items);
+        setTotal(payload.total);
       })
       .catch((e) => {
         const message = e instanceof Error ? e.message : "Failed to fetch targets";
@@ -52,7 +54,7 @@ export default function TargetList(): React.ReactNode {
           targets.map((t) => TargetRow(t))}
       </div>
       <div className="mx-auto">
-        <Pagination range={4} page={page} onPageChange={setPage} />
+        <Pagination range={Math.ceil(total / perPage)} page={page} onPageChange={setPage} />
       </div>
     </div>
   )

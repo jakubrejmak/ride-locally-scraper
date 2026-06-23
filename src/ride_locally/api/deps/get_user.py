@@ -7,11 +7,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from ride_locally.config import config
 
 security = HTTPBearer()
+credentials_dep = Depends(security)
+Credentials = Annotated[HTTPAuthorizationCredentials, credentials_dep]
 
 
-def get_user_id(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-) -> int | None:
+def get_user_id(credentials: Credentials) -> int:
     token = credentials.credentials
 
     try:
@@ -24,3 +24,7 @@ def get_user_id(
     user_id = int(payload["sub"])
 
     return user_id
+
+
+user_id_dep = Depends(get_user_id)
+UserId = Annotated[int, user_id_dep]

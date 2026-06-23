@@ -32,6 +32,13 @@ class ScrTarget(NewScrTarget):
     id: int
 
 
+class GetTargetsResponse(BaseModel):
+    items: list[ScrTarget]
+    total: int
+    page: int
+    per_page: int
+
+
 class ScrScriptResult(BaseModel):
     new_targets: Optional[list[NewScrTarget]] = None
     self_update: Optional[NewScrTarget] = None

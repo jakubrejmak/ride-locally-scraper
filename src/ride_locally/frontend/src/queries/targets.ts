@@ -2,10 +2,17 @@ import { apiFetch } from "../api/client"
 import type { Target } from "../pages/add-target/page";
 
 export type GetTargetsQuery = {
-  offset: number;
-  limit: number;
+  page: number;
+  per_page: number;
   search?: string;
   is_active?: boolean;
+}
+
+export type GetTargetsResponse = {
+  items: Target[];
+  total: number;
+  page: number;
+  per_page: number;
 }
 
 function toStringRecord<T extends Record<string, unknown>>(o: T): Record<string, string> {
@@ -16,13 +23,13 @@ function toStringRecord<T extends Record<string, unknown>>(o: T): Record<string,
   );
 }
 
-export async function get_targets(query: GetTargetsQuery) {
+export async function get_targets(query: GetTargetsQuery): Promise<GetTargetsResponse> {
   const qs = new URLSearchParams(toStringRecord(query))
 
   const res = await apiFetch(`/targets/get?${qs.toString()}`, { method: "GET" });
 
-  const targets: Target[] = await res.json()
+  const payload: GetTargetsResponse = await res.json()
 
-  return targets;
+  return payload;
 }
 
