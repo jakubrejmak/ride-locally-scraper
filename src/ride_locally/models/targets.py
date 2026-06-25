@@ -1,6 +1,4 @@
-from typing import Optional
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Annotated
 
 from ride_locally.models.files import FileResult
@@ -13,19 +11,21 @@ class ScrTargetConfig(BaseModel):
     scraper: Annotated[
         FirecrawlConfig | ScraplingConfig, Field(discriminator="scrape_method")
     ]
-    preprocessor: Optional[PreprocessorConfig] = None
-    processor: Optional[
-        Annotated[LLMProcessorConfig, Field(discriminator="process_method")]
-    ] = None
+    preprocessor: PreprocessorConfig | None
+    processor: (
+        Annotated[LLMProcessorConfig, Field(discriminator="process_method")] | None
+    )
 
 
 class NewScrTarget(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     name: str
     url: str
     config: ScrTargetConfig
     is_active: bool
-    schedule_cron: Optional[str] = None
-    carrier_id: Optional[int] = None
+    schedule_cron: str | None
+    carrier_id: int | None
 
 
 class ScrTarget(NewScrTarget):
@@ -40,6 +40,6 @@ class GetTargetsResponse(BaseModel):
 
 
 class ScrScriptResult(BaseModel):
-    new_targets: Optional[list[NewScrTarget]] = None
-    self_update: Optional[NewScrTarget] = None
-    run_result: Optional[FileResult] = None
+    new_targets: list[NewScrTarget] | None
+    self_update: NewScrTarget | None
+    run_result: FileResult | None

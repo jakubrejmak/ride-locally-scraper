@@ -1,14 +1,26 @@
+import logging
+
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from ride_locally.api.routes.auth import router as auth
 from ride_locally.api.routes.targets import router as targets
 from ride_locally.config import config
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI()
 app.include_router(auth)
 app.include_router(targets)
+
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+    logger.exception("Database error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 app.add_middleware(
     CORSMiddleware,

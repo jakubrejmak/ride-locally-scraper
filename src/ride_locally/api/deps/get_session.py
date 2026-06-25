@@ -8,7 +8,11 @@ from ride_locally.db.session import session
 
 async def get_session():
     async with session() as s:
-        yield s
+        try:
+            yield s
+        except Exception:
+            await s.rollback()
+            raise
 
 
 db_session_dep = Depends(get_session)

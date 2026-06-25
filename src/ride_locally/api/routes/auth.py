@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, model_validator
@@ -10,8 +9,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class LoginRequest(BaseModel):
-    email: Optional[str] = None
-    username: Optional[str] = None
+    email: str | None = None
+    username: str | None = None
     password: str
 
     @model_validator(mode="after")

@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, model_validator
 from typing_extensions import Self
@@ -6,19 +6,19 @@ from typing_extensions import Self
 
 class FirecrawlConfig(BaseModel):
     scrape_method: Literal["firecrawl"] = "firecrawl"
-    format: Optional[str] = None
+    format: str | None = None
 
 
 class ScraplingConfig(BaseModel):
     scrape_method: Literal["scrapling"] = "scrapling"
-    force_mime: Optional[str] = (
+    force_mime: str | None = (
         None  # used to force the mime type. If scraped data does not match the format the exception will be raised
     )
     fetcher: Literal["AsyncFetcher", "DynamicFetcher", "StealthyFetcher"] = (
         "AsyncFetcher"
     )
-    selectors: Optional[list[str]] = None
-    script_path: Optional[str] = None
+    selectors: list[str] | None = None
+    script_path: str | None = None
 
     @model_validator(mode="after")
     def ensure_no_playwright_w_asyncfetcher(self) -> Self:
