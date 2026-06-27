@@ -6,6 +6,7 @@ import TargetRow from "./Target";
 import { Loader2 } from "lucide-react";
 import useDebounced from "../../hooks/useDebounced";
 import Pagination from "../Pagination/Pagination";
+import Switch from "../Switch/Switch";
 
 export default function TargetList(): React.ReactNode {
   const [targets, setTargets] = useState<Target[]>([]);
@@ -35,13 +36,13 @@ export default function TargetList(): React.ReactNode {
   }, [debouncedSearch, isActive, page, perPage])
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex flex-1 min-h-0 flex-col">
       <form className="mb-6 flex place-content-between items-center gap-6">
         <div className="flex flex-col grow">
           <input onChange={(e) => setSearch(e.target.value)} value={search} placeholder="Search targets..." id="search" name="search" type="text" className="text-input" />
         </div>
         <div className="flex gap-2 items-center">
-          <input onChange={(e) => setIsActive(e.target.checked)} name="is_active" type="checkbox" id="is_active" className="checkbox-input" />
+          <Switch id="is_active" checked={isActive} onCheckedChange={setIsActive} />
           <label htmlFor="is_active" className="text-sm">Active only</label>
         </div>
       </form>

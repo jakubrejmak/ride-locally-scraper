@@ -48,8 +48,8 @@ export default function Login() {
           <label htmlFor="email" className="text-white">Email</label>
           <input id="email" name="email" type="text" placeholder="you@example.com" className="text-input" />
           <label htmlFor="pass" className="text-white">Password</label>
-          <input id="pass" name="pass" type="password" placeholder="•••••" className="text-input" />
-          <button type="submit" disabled={loading} className="btn-primary justify-center mt-3">{loading ? <Loader2 size={18} /> : "Log In"}</button>
+          <input id="pass" name="pass" type="password" placeholder="••••••••" className="text-input" />
+          <button type="submit" disabled={loading} className="btn-primary justify-center mt-3">{loading ? <Loader2 className="animate-spin" size={18} /> : "Log In"}</button>
         </form>
       </div>
     </>

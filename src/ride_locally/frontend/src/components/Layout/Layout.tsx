@@ -87,7 +87,7 @@ export default function Layout({
       </nav>
 
       <main className="relative z-10 h-screen min-w-0 flex-1 overflow-y-auto">
-        <div className="p-8 h-full">{children}</div>
+        <div className="p-8 min-h-full flex flex-col">{children}</div>
       </main>
     </div>
   );

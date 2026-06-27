@@ -2,12 +2,12 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=_PROJECT_ROOT / ".env",
+        env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -30,6 +30,8 @@ class Config(BaseSettings):
     DEBUG_OUTPUT_DIR: str = "output_files/debug"
     SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
     PROCESSOR_OUTPUT_DIR: str = "output_files/processor"
+
+    SCRAPER_SCRIPTS_DIR: str = "src/ride_locally/worker/scrapers"
 
     API_ADMIN_EMAIL: str = "admin@email.com"
     API_ADMIN_USERNAME: str = "admin"

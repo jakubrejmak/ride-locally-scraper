@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, model_validator
 
+from ride_locally.api.deps.get_user import UserId
 from ride_locally.api.services.auth import auth_user, create_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -39,4 +40,10 @@ async def login(body: LoginRequest) -> TokenResponse:
 
     token, expires_at = create_token(user.id)
 
+    return TokenResponse(access_token=token, expires_at=expires_at)
+
+
+@router.post("/refresh")
+async def refresh_token(user_id: UserId) -> TokenResponse:
+    token, expires_at = create_token(user_id)
     return TokenResponse(access_token=token, expires_at=expires_at)

@@ -1,13 +1,17 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { ArrowLeft, CalendarClock, Loader2, Plus, Trash2, WandSparkles } from "lucide-react";
 import { z } from "zod";
 import cronstrue from "cronstrue";
+import { Popover } from "@base-ui/react/popover";
+import { Combobox } from "@base-ui/react/combobox";
 
 import { apiFetch } from "../../api/client";
 import Background from "../../components/Background/Background";
 import Layout from "../../components/Layout/Layout";
 import { ToastContext } from "../../components/Toast/ToastContext";
+import useDebounced from "../../hooks/useDebounced";
+import Switch from "../../components/Switch/Switch";
 
 const cronPresets = [
   { label: "Hourly", value: "0 * * * *" },
@@ -159,14 +163,15 @@ export default function AddTarget(): React.ReactNode {
   const [isActive, setIsActive] = useState<boolean>(true);
   const [carrierId, setCarrierId] = useState<string>("");
   const [cron, setCron] = useState<string>("");
-  const [showCronPresets, setShowCronPresets] = useState<boolean>(false);
 
-  const [scrapeMethod, setScrapeMethod] = useState<ScrapeMethod>("firecrawl");
+  const [scrapeMethod, setScrapeMethod] = useState<ScrapeMethod>("scrapling");
   const [firecrawlFormat, setFirecrawlFormat] = useState<string>("");
   const [scraplingFetcher, setScraplingFetcher] = useState<"AsyncFetcher" | "DynamicFetcher" | "StealthyFetcher">("AsyncFetcher");
   const [scraplingForceMime, setScraplingForceMime] = useState<string>("");
   const [scraplingSelectors, setScraplingSelectors] = useState<string>("");
-  const [scraplingScriptPath, setScraplingScriptPath] = useState<string>("");
+  const [scriptPath, setScriptPath] = useState<string>("");
+  const debouncedScriptPath = useDebounced(scriptPath, 300);
+  const [scriptsList, setScriptsList] = useState<string[]>([]);
 
   const [usePreprocessor, setUsePreprocessor] = useState<boolean>(false);
   const [tools, setTools] = useState<ToolDraft[]>([]);
@@ -213,7 +218,7 @@ export default function AddTarget(): React.ReactNode {
         scrape_method: "scrapling" as const,
         fetcher: scraplingFetcher,
         force_mime: scraplingForceMime.trim() ? scraplingForceMime.trim() : null,
-        script_path: scraplingScriptPath.trim() ? scraplingScriptPath.trim() : null,
+        script_path: scriptPath.trim() ? scriptPath.trim() : null,
         selectors: scraplingSelectors.trim()
           ? scraplingSelectors
             .split("\n")
@@ -345,7 +350,7 @@ export default function AddTarget(): React.ReactNode {
 
     setLoading(true);
     try {
-      await apiFetch("/targets/add", {
+      await apiFetch("/targets", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -380,7 +385,7 @@ export default function AddTarget(): React.ReactNode {
     scraplingFetcher,
     scraplingForceMime,
     scraplingSelectors,
-    scraplingScriptPath,
+    scriptPath,
     usePreprocessor,
     tools,
     useProcessor,
@@ -390,10 +395,19 @@ export default function AddTarget(): React.ReactNode {
     apiParamsRaw,
   ]);
 
+  useEffect(() => {
+    const url = `/scripts/${scrapeMethod === "scrapling" ? "scrapling" : "firecrawl"}?search=${scriptPath}`;
+    apiFetch(url, { method: "GET" })
+      .then((r) => r.json())
+      .then((data) => {
+        setScriptsList(data);
+      })
+  }, [debouncedScriptPath])
+
   return (
     <Layout>
       <Background />
-      <form onSubmit={(e) => e.preventDefault()} className="panel mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col">
+      <form onSubmit={(e) => e.preventDefault()} className="panel mx-auto flex w-full max-w-6xl flex-col">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-white">Add target</h1>
@@ -421,7 +435,7 @@ export default function AddTarget(): React.ReactNode {
           ))}
         </div>
 
-        <div className="flex-1 overflow-auto px-1">
+        <div className="px-1">
           {step === 1 ? (
             <div className="mx-auto grid w-full max-w-3xl gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -443,13 +457,7 @@ export default function AddTarget(): React.ReactNode {
                 <div>
                   <label className="mb-1 block text-sm text-white">Target active</label>
                   <div className="flex h-10 items-center gap-2">
-                    <input
-                      id="is_active"
-                      type="checkbox"
-                      checked={isActive}
-                      onChange={(e) => setIsActive(e.target.checked)}
-                      className="checkbox-input"
-                    />
+                    <Switch id="is_active" checked={isActive} onCheckedChange={setIsActive} />
                     <label htmlFor="is_active" className="text-sm text-white">Target is active</label>
                   </div>
                 </div>
@@ -467,49 +475,44 @@ export default function AddTarget(): React.ReactNode {
                   ) : null}
                 </div>
 
-                <div className="relative">
+                <div>
                   <label className="mb-1 block text-sm text-white">Cron presets</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowCronPresets((current) => !current)}
-                    className="btn-secondary"
-                  >
-                    <WandSparkles size={14} />
-                    Presets
-                  </button>
-
-                  {showCronPresets ? (
-                    <div className="absolute left-0 top-full z-20 mt-2 w-44 rounded-xl border border-accent-light/30 bg-surface/95 p-2 shadow-lg backdrop-blur-sm">
-                      <div className="grid gap-1">
-                        {cronPresets.map((preset) => (
-                          <button
-                            key={preset.value}
-                            type="button"
-                            onClick={() => {
-                              setCron(preset.value);
-                              setShowCronPresets(false);
-                            }}
-                            className="btn-secondary w-full justify-start"
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
+                  <Popover.Root>
+                    <Popover.Trigger className="w-full btn-secondary">
+                      <WandSparkles size={14} />
+                      Presets
+                    </Popover.Trigger>
+                    <Popover.Portal>
+                      <Popover.Positioner sideOffset={8} align="start" className="z-10">
+                        <Popover.Popup className="w-44 rounded-xl border border-accent-light/30 bg-surface/95 p-2 shadow-lg backdrop-blur-sm outline-none">
+                          <div className="grid gap-1">
+                            {cronPresets.map((preset) => (
+                              <Popover.Close
+                                key={preset.value}
+                                onClick={() => setCron(preset.value)}
+                                className="btn-secondary w-full justify-start"
+                              >
+                                {preset.label}
+                              </Popover.Close>
+                            ))}
+                          </div>
+                        </Popover.Popup>
+                      </Popover.Positioner>
+                    </Popover.Portal>
+                  </Popover.Root>
                 </div>
               </div>
             </div>
           ) : null}
 
           {step === 2 ? (
-            <div className="mx-auto grid w-full max-w-3xl gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
+            <div className="mx-auto grid w-full max-w-3xl gap-4 sm:grid-cols-3">
+              <div>
                 <label className="mb-1 block text-sm text-white">Scraper</label>
                 <select
                   value={scrapeMethod}
                   onChange={(e) => setScrapeMethod(e.target.value as ScrapeMethod)}
-                  className="text-input"
+                  className="text-input w-full"
                 >
                   <option value="firecrawl">Firecrawl</option>
                   <option value="scrapling">Scrapling</option>
@@ -521,7 +524,7 @@ export default function AddTarget(): React.ReactNode {
                   <label htmlFor="firecrawl_format" className="mb-1 block text-sm text-white">Format (optional)</label>
                   <input
                     id="firecrawl_format"
-                    className="text-input"
+                    className="text-input w-full"
                     value={firecrawlFormat}
                     onChange={(e) => setFirecrawlFormat(e.target.value)}
                     placeholder="markdown"
@@ -535,7 +538,7 @@ export default function AddTarget(): React.ReactNode {
                       id="fetcher"
                       value={scraplingFetcher}
                       onChange={(e) => setScraplingFetcher(e.target.value as typeof scraplingFetcher)}
-                      className="text-input"
+                      className="text-input w-full"
                     >
                       <option value="AsyncFetcher">AsyncFetcher</option>
                       <option value="DynamicFetcher">DynamicFetcher</option>
@@ -547,32 +550,61 @@ export default function AddTarget(): React.ReactNode {
                     <label htmlFor="force_mime" className="mb-1 block text-sm text-white">Force mime (optional)</label>
                     <input
                       id="force_mime"
-                      className="text-input"
+                      className="text-input w-full"
                       value={scraplingForceMime}
                       onChange={(e) => setScraplingForceMime(e.target.value)}
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-3">
                     <label htmlFor="selectors" className="mb-1 block text-sm text-white">Selectors (one per line, optional)</label>
                     <textarea
                       id="selectors"
-                      className="text-input min-h-28"
+                      className="text-input min-h-28 w-full"
                       value={scraplingSelectors}
                       onChange={(e) => setScraplingSelectors(e.target.value)}
                       placeholder="table tr"
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-3">
                     <label htmlFor="script_path" className="mb-1 block text-sm text-white">Playwright script path (optional)</label>
-                    <input
-                      id="script_path"
-                      className="text-input"
-                      value={scraplingScriptPath}
-                      onChange={(e) => setScraplingScriptPath(e.target.value)}
-                      placeholder="worker/scrapers/scripts/custom.py"
-                    />
+                    <Combobox.Root
+                      items={scriptsList}
+                      inputValue={scriptPath}
+                      onInputValueChange={(value) => setScriptPath(value)}
+                      value={scriptPath || null}
+                      onValueChange={(value) => setScriptPath(value ?? "")}
+                      // server-side filtering: bypass internal filter
+                      filter={() => true}
+                    >
+                      <Combobox.Input
+                        id="script_path"
+                        className="text-input w-full"
+                        placeholder="worker/scrapers/scripts/custom.py"
+                        autoComplete="off"
+                      />
+                      <Combobox.Portal>
+                        <Combobox.Positioner sideOffset={4} align="start" className="z-10">
+                          <Combobox.Popup className="max-h-64 w-[var(--anchor-width)] overflow-auto rounded-xl border border-accent-light/30 bg-surface/95 p-1 shadow-lg backdrop-blur-sm outline-none">
+                            <Combobox.Empty className="px-3 py-2 text-sm text-white/60">
+                              No scripts found
+                            </Combobox.Empty>
+                            <Combobox.List>
+                              {(script: string) => (
+                                <Combobox.Item
+                                  key={script}
+                                  value={script}
+                                  className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-white/80 data-[highlighted]:bg-white/5 data-[highlighted]:text-white"
+                                >
+                                  {script}
+                                </Combobox.Item>
+                              )}
+                            </Combobox.List>
+                          </Combobox.Popup>
+                        </Combobox.Positioner>
+                      </Combobox.Portal>
+                    </Combobox.Root>
                   </div>
                 </>
               )}
@@ -581,22 +613,17 @@ export default function AddTarget(): React.ReactNode {
 
           {step === 3 ? (
             <div className="mx-auto grid w-full max-w-3xl gap-6">
-              <section className="rounded-xl border border-accent-light/30 p-4">
-                <div className="mb-3 flex items-center justify-between">
+              <section>
+                <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg text-white">Preprocessor</h2>
-                  <label className="flex items-center gap-2 text-sm text-white">
-                    <input type="checkbox" className="checkbox-input" checked={usePreprocessor} onChange={(e) => setUsePreprocessor(e.target.checked)} />
-                    Enabled
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="use_preprocessor" className="text-sm text-white">Enabled</label>
+                    <Switch id="use_preprocessor" checked={usePreprocessor} onCheckedChange={setUsePreprocessor} />
+                  </div>
                 </div>
 
                 {usePreprocessor ? (
                   <>
-                    <button type="button" className="btn-secondary mb-4" onClick={addTool}>
-                      <Plus size={16} />
-                      Add tool
-                    </button>
-
                     <div className="grid gap-3">
                       {tools.map((tool, index) => (
                         <div key={tool.id} className="rounded-lg border border-accent-light/20 p-3">
@@ -610,7 +637,7 @@ export default function AddTarget(): React.ReactNode {
 
                           <label className="mb-1 block text-sm text-white">Ref</label>
                           <input
-                            className="text-input"
+                            className="text-input w-full"
                             value={tool.ref}
                             onChange={(e) => updateTool(tool.id, { ref: e.target.value })}
                             placeholder="module:function"
@@ -618,7 +645,7 @@ export default function AddTarget(): React.ReactNode {
 
                           <label className="mb-1 mt-3 block text-sm text-white">Params JSON array (optional)</label>
                           <textarea
-                            className="text-input min-h-24"
+                            className="text-input min-h-24 w-full"
                             value={tool.params}
                             onChange={(e) => updateTool(tool.id, { params: e.target.value })}
                             placeholder='[{"threshold": 0.8}]'
@@ -630,49 +657,60 @@ export default function AddTarget(): React.ReactNode {
                         <p className="text-sm text-white/60">No tools configured yet.</p>
                       ) : null}
                     </div>
+
+                    <div className="mt-4 flex justify-end">
+                      <button type="button" className="btn-secondary" onClick={addTool}>
+                        <Plus size={16} />
+                        Add tool
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm text-white/60">Disabled. No preprocessing tools will run.</p>
                 )}
               </section>
 
-              <section className="rounded-xl border border-accent-light/30 p-4">
-                <div className="mb-3 flex items-center justify-between">
+              <hr className="border-t border-accent-light/40" />
+
+              <section>
+                <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg text-white">Processor (LLM)</h2>
-                  <label className="flex items-center gap-2 text-sm text-white">
-                    <input type="checkbox" className="checkbox-input" checked={useProcessor} onChange={(e) => setUseProcessor(e.target.checked)} />
-                    Enabled
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="use_processor" className="text-sm text-white">Enabled</label>
+                    <Switch id="use_processor" checked={useProcessor} onCheckedChange={setUseProcessor} />
+                  </div>
                 </div>
 
                 {useProcessor ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-sm text-white">Provider</label>
-                      <select className="text-input" value={provider} onChange={(e) => setProvider(e.target.value as LlmProvider)}>
-                        <option value="openrouter">openrouter</option>
-                        <option value="gemini">gemini</option>
-                      </select>
+                  <div className="grid gap-4">
+                    <div className="flex items-end gap-3">
+                      <div className="shrink-0">
+                        <label className="mb-1 block text-sm text-white">Provider</label>
+                        <select className="text-input" value={provider} onChange={(e) => setProvider(e.target.value as LlmProvider)}>
+                          <option value="openrouter">openrouter</option>
+                          <option value="gemini">gemini</option>
+                        </select>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <label className="mb-1 block text-sm text-white">Model</label>
+                        <input className="text-input w-full" value="gemini-3-flash-preview" disabled />
+                      </div>
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm text-white">Model</label>
-                      <input className="text-input" value="gemini-3-flash-preview" disabled />
-                    </div>
-
-                    <div className="sm:col-span-2">
                       <label className="mb-1 block text-sm text-white">System prompt (optional)</label>
-                      <textarea className="text-input min-h-24" value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
+                      <textarea className="text-input min-h-24 w-full" value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} />
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div>
                       <label className="mb-1 block text-sm text-white">User prompts (one per line)</label>
-                      <textarea className="text-input min-h-24" value={userPrompts} onChange={(e) => setUserPrompts(e.target.value)} />
+                      <textarea className="text-input min-h-24 w-full" value={userPrompts} onChange={(e) => setUserPrompts(e.target.value)} />
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div>
                       <label className="mb-1 block text-sm text-white">API params JSON object (optional)</label>
-                      <textarea className="text-input min-h-24" value={apiParamsRaw} onChange={(e) => setApiParamsRaw(e.target.value)} placeholder='{"temperature": 0.2}' />
+                      <textarea className="text-input min-h-24 w-full" value={apiParamsRaw} onChange={(e) => setApiParamsRaw(e.target.value)} placeholder='{"temperature": 0.2}' />
                     </div>
                   </div>
                 ) : (

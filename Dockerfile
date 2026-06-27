@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml .
 COPY src src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system ".[api]"
+    uv pip install --system -e ".[api]"
 
 COPY alembic alembic
 COPY alembic.ini .

@@ -26,7 +26,7 @@ function toStringRecord<T extends Record<string, unknown>>(o: T): Record<string,
 export async function get_targets(query: GetTargetsQuery): Promise<GetTargetsResponse> {
   const qs = new URLSearchParams(toStringRecord(query))
 
-  const res = await apiFetch(`/targets/get?${qs.toString()}`, { method: "GET" });
+  const res = await apiFetch(`/targets?${qs.toString()}`, { method: "GET" });
 
   const payload: GetTargetsResponse = await res.json()
 
