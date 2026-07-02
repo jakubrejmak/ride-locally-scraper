@@ -12,9 +12,9 @@ from ride_locally.db.session import session
 ph = PasswordHasher()
 
 
-def create_token(user_id: int) -> tuple[str, datetime]:
+def create_token(user_id: int, expires: int | None = None) -> tuple[str, datetime]:
     expire = datetime.now(timezone.utc) + timedelta(
-        minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=expires or config.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
     payload = {"sub": str(user_id), "exp": expire}

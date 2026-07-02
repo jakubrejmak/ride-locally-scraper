@@ -7,6 +7,7 @@ import asyncio
 import logging
 import signal
 from logging import getLogger
+from logging.handlers import RotatingFileHandler
 
 from ride_locally.worker.processor_loop import processor
 from ride_locally.worker.scraper_loop import scraper
@@ -15,6 +16,10 @@ log = getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    handlers= [
+        logging.StreamHandler(),
+        RotatingFileHandler("worker.log", mode="a", maxBytes=10_000_000, backupCount=5)
+    ]
 )
 
 _shutdown = asyncio.Event()

@@ -1,11 +1,13 @@
 import { apiFetch } from "../api/client"
 import type { Target } from "../pages/add-target/page";
 
+export type TargetActiveState = "true" | "false" | "both";
+
 export type GetTargetsQuery = {
   page: number;
   per_page: number;
   search?: string;
-  is_active?: boolean;
+  active?: TargetActiveState;
 }
 
 export type GetTargetsResponse = {

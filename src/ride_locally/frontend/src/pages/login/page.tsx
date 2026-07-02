@@ -24,11 +24,11 @@ export default function Login() {
     const pass = String(data.get("pass") ?? "");
 
     try {
-      const { access_token, expires_at } = await login({
+      const { token, expires_at } = await login({
         email: user,
         password: pass,
       });
-      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("access_token", token);
       localStorage.setItem("access_token_expires", expires_at);
       toast?.success("Logged in");
       navigate(from, { replace: true });

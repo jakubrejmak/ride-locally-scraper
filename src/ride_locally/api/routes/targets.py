@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, status
 
@@ -25,12 +25,12 @@ async def get_targets(
     page: Annotated[int, Query(ge=1)] = 1,
     per_page: Annotated[int, Query(ge=1, le=100)] = 10,
     search: str | None = None,
-    is_active: bool | None = None,
+    active: Literal["true", "false", "both"] = "both",
 ) -> GetTargetsResponse:
     return await list_targets(
         db=db,
         page=page,
         per_page=per_page,
         search=search,
-        is_active=is_active,
+        active=active,
     )

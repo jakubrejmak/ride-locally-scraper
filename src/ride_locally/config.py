@@ -13,6 +13,7 @@ class Config(BaseSettings):
     )
 
     JWT_SECRET: str
+    JWT_REFRESH_SECRET: str
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 

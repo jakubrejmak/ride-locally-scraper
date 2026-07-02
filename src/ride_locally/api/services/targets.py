@@ -1,3 +1,5 @@
+from typing import Literal
+
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,12 +30,12 @@ async def list_targets(
     page: int,
     per_page: int,
     search: str | None,
-    is_active: bool | None,
+    active: Literal["true", "false", "both"] = "both",
 ) -> GetTargetsResponse:
     conditions = []
 
-    if is_active is not None:
-        conditions.append(ScrTargetTable.is_active == is_active)
+    if active != "both":
+        conditions.append(ScrTargetTable.is_active == (True if active == "true" else False))
 
     if search:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

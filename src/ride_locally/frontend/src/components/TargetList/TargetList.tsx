@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from "react"
 import { ToastContext } from "../Toast/ToastContext";
 import type { Target } from "../../pages/add-target/page"
-import { get_targets } from "../../queries/targets";
+import { get_targets, type TargetActiveState } from "../../queries/targets";
 import TargetRow from "./Target";
 import { Loader2 } from "lucide-react";
 import useDebounced from "../../hooks/useDebounced";
@@ -15,13 +15,13 @@ export default function TargetList(): React.ReactNode {
   const [page, setPage] = useState<number>(1);
   const perPage = 10;
   const [total, setTotal] = useState<number>(0);
-  const [isActive, setIsActive] = useState<boolean>(false);
+  const [active, setActive] = useState<TargetActiveState>("both");
   const debouncedSearch = useDebounced(search, 300);
   const toast = useContext(ToastContext);
 
   useEffect(() => {
     setLoading(true);
-    get_targets({ page, per_page: perPage, search: debouncedSearch.trim(), is_active: isActive })
+    get_targets({ page, per_page: perPage, search: debouncedSearch.trim(), active: active })
       .then((payload) => {
         setTargets(payload.items);
         setTotal(payload.total);
@@ -33,7 +33,7 @@ export default function TargetList(): React.ReactNode {
       .finally(() => {
         setLoading(false);
       })
-  }, [debouncedSearch, isActive, page, perPage])
+  }, [debouncedSearch, active, page, perPage])
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
@@ -42,7 +42,7 @@ export default function TargetList(): React.ReactNode {
           <input onChange={(e) => setSearch(e.target.value)} value={search} placeholder="Search targets..." id="search" name="search" type="text" className="text-input" />
         </div>
         <div className="flex gap-2 items-center">
-          <Switch id="is_active" checked={isActive} onCheckedChange={setIsActive} />
+          <Switch id="is_active" checked={active === "true"} onCheckedChange={(checked) => setActive(checked ? "true" : "both")} />
           <label htmlFor="is_active" className="text-sm">Active only</label>
         </div>
       </form>

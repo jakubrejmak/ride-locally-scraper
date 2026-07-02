@@ -11,10 +11,10 @@ class ScrTargetConfig(BaseModel):
     scraper: Annotated[
         FirecrawlConfig | ScraplingConfig, Field(discriminator="scrape_method")
     ]
-    preprocessor: PreprocessorConfig | None
+    preprocessor: PreprocessorConfig | None = None
     processor: (
         Annotated[LLMProcessorConfig, Field(discriminator="process_method")] | None
-    )
+    ) = None
 
 
 class NewScrTarget(BaseModel):

@@ -1,9 +1,11 @@
-from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+import jwt
+from fastapi import APIRouter, HTTPException, status, Cookie
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, model_validator
 
-from ride_locally.api.deps.get_user import UserId
+from ride_locally.config import config
 from ride_locally.api.services.auth import auth_user, create_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -21,14 +23,8 @@ class LoginRequest(BaseModel):
         return self
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_at: datetime
-
-
 @router.post("/login")
-async def login(body: LoginRequest) -> TokenResponse:
+async def login(body: LoginRequest) -> JSONResponse:
     user = await auth_user(
         email=body.email, username=body.username, password=body.password
     )
@@ -39,11 +35,21 @@ async def login(body: LoginRequest) -> TokenResponse:
         )
 
     token, expires_at = create_token(user.id)
+    refresh_token, _ = create_token(user.id, 1440)
 
-    return TokenResponse(access_token=token, expires_at=expires_at)
+    resp = JSONResponse({"token": token, "expires_at": expires_at.isoformat()})
+    resp.set_cookie(key="session", value=refresh_token, httponly=True)
+
+    return resp
 
 
 @router.post("/refresh")
-async def refresh_token(user_id: UserId) -> TokenResponse:
+async def refresh_token(session: Annotated[str, Cookie()]) -> JSONResponse:
+    payload = jwt.decode(session, config.JWT_REFRESH_SECRET, config.JWT_ALGORITHM)
+    user_id = payload["sub"]
+
     token, expires_at = create_token(user_id)
-    return TokenResponse(access_token=token, expires_at=expires_at)
+
+    resp = JSONResponse({"token": token, "expires_at": expires_at.isoformat()})
+
+    return resp

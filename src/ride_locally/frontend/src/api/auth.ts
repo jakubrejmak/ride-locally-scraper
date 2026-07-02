@@ -12,8 +12,8 @@ const LoginBodySchema = z.object({
 
 type LoginBody = z.infer<typeof LoginBodySchema>
 
-type TokenResponse = {
-  access_token: string;
+export type TokenResponse = {
+  token: string;
   expires_at: string;
   token_type: string;
 }
