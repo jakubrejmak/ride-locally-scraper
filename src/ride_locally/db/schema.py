@@ -4,6 +4,7 @@ from typing import TypeAlias
 
 from sqlalchemy import (
     Boolean,
+    DateTime,
     Enum,
     ForeignKey,
     Integer,
@@ -39,15 +40,25 @@ class ScrTargetTable(Base):
     config: Mapped[dict] = mapped_column(JSONB, nullable=False)
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # next wall-clock instant this target is eligible to run.
+    # computed from schedule_cron on insert and on release. set to now() for "run now".
+    # NULL = one-shot, run immediately, never reschedule.
+    next_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # populated while a worker holds the row. NULL = free to claim.
+    # claimed_by is hostname:pid, kept for observability + the reaper.
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    claimed_by: Mapped[str | None] = mapped_column(String(255))
     carrier_id: Mapped[int] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
 
+# runs appear every time a scrape is performed and are later claimed by processor
 class ScrRunTable(Base):
     __tablename__ = "scr_runs"
 
@@ -60,12 +71,18 @@ class ScrRunTable(Base):
         nullable=False,
         default=ScrapeStatus.pending,
     )
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # False = scrape produced no diff vs previous run, processor should skip it.
+    # decided at scrape-finish so the processor never diffs at pop time.
+    should_process: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    claimed_by: Mapped[str | None] = mapped_column(String(255))
     o_filepath: Mapped[str | None] = mapped_column(Text)
     error_message: Mapped[str | None] = mapped_column(Text)
-    started_at: Mapped[datetime | None] = mapped_column()
-    finished_at: Mapped[datetime | None] = mapped_column()
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 
@@ -87,10 +104,10 @@ class ScrProcessedTable(Base):
     o_filepath: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     error_message: Mapped[str | None] = mapped_column(Text)
-    started_at: Mapped[datetime | None] = mapped_column()
-    finished_at: Mapped[datetime | None] = mapped_column()
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now()
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 

@@ -4,122 +4,192 @@
 
 from datetime import datetime, timezone
 from logging import getLogger
+from logging.handlers import RotatingFileHandler
+
+from sqlalchemy import insert, select, update
 
 from ride_locally.config import config
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.worker.files import save_result
-from ride_locally.worker.scrapers.run_firecrawl import run_firecrawl
-from ride_locally.worker.scrapers.run_scrapling import run_scrapling
 from ride_locally.models.files import FileResult
 from ride_locally.models.scrapers import FirecrawlConfig, ScraplingConfig
-from ride_locally.models.targets import NewScrTarget, ScrScriptResult, ScrTargetConfig
+from ride_locally.models.targets import NewScrTarget, ScrScriptResult, ScrTarget
+from ride_locally.worker.files import diff_file_results, save_result
+from ride_locally.worker.scrapers.run_firecrawl import run_firecrawl
+from ride_locally.worker.scrapers.run_scrapling import run_scrapling
 
-log = getLogger(__file__)
+log = getLogger(__name__)
+log.addHandler(
+    RotatingFileHandler(
+        f"{config.LOG_DIR}/scraper.log", mode="a", maxBytes=10_000_000, backupCount=5
+    )
+)
 
 
-def new_target_to_row(new_target: NewScrTarget) -> ScrTargetTable:
-    data = new_target.model_dump()
-    mapper = ScrTargetTable.__table__.columns
+# columns settable on scr_targets from a NewScrTarget payload. excludes id
+# (autoincrement) and created_at/updated_at (server-managed). config is a
+# pydantic model - .model_dump() serializes it to the dict JSONB expects.
+_NEW_TARGET_COLS = {
+    "name",
+    "url",
+    "config",
+    "is_active",
+    "schedule_cron",
+    "carrier_id",
+    "priority",
+    "next_due_at",
+}
 
-    for field, val in data.items():
-        if field not in mapper:
-            raise ValueError(f"Field '{field}' does not exist on ScrTargetTable")
-        col = mapper[field]
-        expected = col.type.python_type
-        if val is None:
-            if not col.nullable:
-                raise ValueError(f"Field '{field}' is not nullable")
-            continue
-        if not isinstance(val, expected):
-            raise TypeError(
-                f"Field '{field}': expected {expected.__name__}, got {type(val).__name__}"
-            )
-        if hasattr(col.type, "length") and col.type.length and isinstance(val, str):  # type: ignore[union-attr]
-            if len(val) > col.type.length:  # type: ignore[union-attr]
-                raise ValueError(
-                    f"Field '{field}': length {len(val)} exceeds max {col.type.length}"  # type: ignore[union-attr]
-                )
 
-    return ScrTargetTable(**data)
+def _target_values(new: NewScrTarget) -> dict:
+    # pydantic already validated types + lengths at NewScrTarget construction,
+    # so no runtime re-checks needed. dump only DB-writable columns.
+    data = new.model_dump()
+    return {k: data[k] for k in _NEW_TARGET_COLS if k in data}
+
+
+async def _get_prev_run_filepath(target_id: int, exclude_run_id: int) -> str | None:
+    # most recent finished run for this target, other than the one we just
+    # created. used to decide should_process = (files differ).
+    async with session() as s:
+        q = (
+            select(ScrRunTable.o_filepath)
+            .where(ScrRunTable.target_id == target_id)
+            .where(ScrRunTable.id != exclude_run_id)
+            .where(ScrRunTable.o_filepath.is_not(None))
+            .order_by(ScrRunTable.created_at.desc())
+            .limit(1)
+        )
+        r = await s.execute(q)
+        return r.scalar_one_or_none()
 
 
 async def handle_self_update(
-    target: ScrTargetTable, self_update: NewScrTarget | None
+    target: ScrTarget, self_update: NewScrTarget | None
 ) -> dict | None:
+    # a scraper script may return a NewScrTarget describing how it wants its
+    # own row updated (e.g. discovered a new URL for the same source). we
+    # compute a diff against the snapshot we have in hand, then issue one
+    # targeted UPDATE. no re-fetch, no ORM mutation.
     if self_update is None:
         return None
 
-    validated = new_target_to_row(self_update)
-    fields = [
-        c.key
-        for c in ScrTargetTable.__table__.columns
-        if c.key not in ("id", "created_at", "updated_at")
-    ]
+    new_vals = _target_values(self_update)
+    current = target.model_dump()
 
     diff = {}
-    for field in fields:
-        current_val = getattr(target, field)
-        new_val = getattr(validated, field)
-        if current_val != new_val:
-            diff[field] = {"current": current_val, "new": new_val}
-            setattr(target, field, new_val)
+    for field, new_val in new_vals.items():
+        cur_val = current.get(field)
+        if cur_val != new_val:
+            diff[field] = {"current": cur_val, "new": new_val}
+
+    if not diff:
+        return None
 
     async with session() as s:
-        s.add(target)
+        await s.execute(
+            update(ScrTargetTable)
+            .where(ScrTargetTable.id == target.id)
+            .values(**{k: new_vals[k] for k in diff})
+        )
         await s.commit()
 
-    return diff if diff else None
+    return diff
 
 
 async def handle_new_targets(
     new_targets: list[NewScrTarget] | None,
 ) -> tuple[list[NewScrTarget], list[NewScrTarget]]:
-    if new_targets is None:
+    # scraper scripts can spawn new targets (e.g. crawler-style discovery).
+    # each insert is isolated so a single bad row doesn't drop the batch.
+    if not new_targets:
         return [], []
 
     added: list[NewScrTarget] = []
     failed: list[NewScrTarget] = []
-    async with session() as s:
-        for t in new_targets:
-            try:
-                row = new_target_to_row(t)
-                s.add(row)
-                added.append(t)
-            except Exception:
-                log.error(f"Failed to create target: {t}")
-                failed.append(t)
-        await s.commit()
+    now = datetime.now(timezone.utc)
+
+    for t in new_targets:
+        try:
+            vals = _target_values(t)
+            # new targets become immediately due unless the payload set
+            # next_due_at explicitly. matches the "create -> run soon" UX.
+            vals.setdefault("next_due_at", now)
+            async with session() as s:
+                await s.execute(insert(ScrTargetTable).values(**vals))
+                await s.commit()
+            added.append(t)
+        except Exception:
+            log.error(f"failed to create target: {t}")
+            failed.append(t)
 
     return added, failed
 
 
-async def _mark_as_error(run: ScrRunTable, message: str | None):
+async def _insert_run(target: ScrTarget) -> int:
+    # returning: run.id. priority is denormalized from the target so the
+    # processor's claim query can order by priority without joining.
     async with session() as s:
-        run.status = ScrapeStatus.failed
-        run.finished_at = datetime.now(timezone.utc)
-        run.error_message = message
-        s.add(run)
+        r = await s.execute(
+            insert(ScrRunTable)
+            .values(
+                target_id=target.id,
+                status=ScrapeStatus.running,
+                priority=target.priority,
+                started_at=datetime.now(timezone.utc),
+                should_process=True,  # provisional; finalized on success
+            )
+            .returning(ScrRunTable.id)
+        )
+        run_id = r.scalar_one()
+        await s.commit()
+    return run_id
+
+
+async def _mark_run_success(
+    run_id: int, o_filepath: str | None, should_process: bool
+) -> None:
+    async with session() as s:
+        await s.execute(
+            update(ScrRunTable)
+            .where(ScrRunTable.id == run_id)
+            .values(
+                status=ScrapeStatus.success,
+                finished_at=datetime.now(timezone.utc),
+                o_filepath=o_filepath,
+                should_process=should_process,
+            )
+        )
         await s.commit()
 
 
-async def run_scrape(
-    target: ScrTargetTable,
-) -> bool:
-    """Takes a target and saves its result to ScrRunTable"""
-
-    # create run row in ScrRunTable and save the result into its output
-    run = ScrRunTable(target_id=target.id)
-    run.status = ScrapeStatus.running
-    run.started_at = datetime.now(timezone.utc)
+async def _mark_run_error(run_id: int, message: str | None) -> None:
     async with session() as s:
-        s.add(run)
+        await s.execute(
+            update(ScrRunTable)
+            .where(ScrRunTable.id == run_id)
+            .values(
+                status=ScrapeStatus.failed,
+                finished_at=datetime.now(timezone.utc),
+                error_message=message,
+                should_process=False,
+            )
+        )
         await s.commit()
+
+
+async def run_scrape(target: ScrTarget) -> bool:
+    """Takes a target snapshot and records its result to scr_runs."""
+
+    log.info(
+        f"started scrape for target: {target.name or target.id} at "
+        f"{datetime.now(timezone.utc)}"
+    )
+
+    run_id = await _insert_run(target)
 
     try:
-        target_config = ScrTargetConfig.model_validate(target.config)
-
-        match target_config.scraper:
+        match target.config.scraper:
             case FirecrawlConfig() as scraper:
                 result = await run_firecrawl(target.url, scraper)
             case ScraplingConfig() as scraper:
@@ -127,34 +197,49 @@ async def run_scrape(
             case _:
                 raise ValueError("No scrape method provided")
 
-        if isinstance(result, FileResult):
-            # save the file and point the DB to its location
-            if result:
-                filepath = save_result(result, config.SCRAPER_OUTPUT_DIR)
-                run.o_filepath = filepath
-        elif isinstance(result, ScrScriptResult):
-            # modify current target
-            await handle_self_update(target, result.self_update)
-            # add new targets to session
-            await handle_new_targets(result.new_targets)
-            # save the file and point the DB to its location
-            if result.run_result:
-                filepath = save_result(result.run_result, config.SCRAPER_OUTPUT_DIR)
-                run.o_filepath = filepath
+        o_filepath: str | None = None
 
-        async with session() as s:
-            run.status = ScrapeStatus.success
-            run.finished_at = datetime.now(timezone.utc)
-            s.add(run)
-            await s.commit()
+        if isinstance(result, FileResult):
+            if result:
+                o_filepath = save_result(result, config.SCRAPER_OUTPUT_DIR)
+        elif isinstance(result, ScrScriptResult):
+            await handle_self_update(target, result.self_update)
+            await handle_new_targets(result.new_targets)
+            if result.run_result:
+                o_filepath = save_result(result.run_result, config.SCRAPER_OUTPUT_DIR)
+
+        # decide should_process now, so the processor never has to diff at pop time.
+        # rules: no output -> nothing to process.
+        #        no previous output -> first run for this target, process it.
+        #        otherwise -> process only if content changed.
+        should_process = False
+        if o_filepath:
+            prev = await _get_prev_run_filepath(target.id, run_id)
+            if prev is None:
+                should_process = True
+            else:
+                try:
+                    should_process = diff_file_results(o_filepath, prev)
+                except Exception:
+                    # if the diff itself fails (unreadable prev file etc.),
+                    # err on the side of processing rather than silently skipping.
+                    log.exception(f"diff failed for run {run_id}, defaulting to process")
+                    should_process = True
+
+        await _mark_run_success(run_id, o_filepath, should_process)
+
+        log.info(
+            f"finished scrape for target: {target.name or target.id} at "
+            f"{datetime.now(timezone.utc)}"
+        )
 
     except Exception as e:
         log.error(e)
-        await _mark_as_error(run, str(e))
+        await _mark_run_error(run_id, str(e))
         return False
     except BaseException as e:
         log.error(e)
-        await _mark_as_error(run, str(e))
+        await _mark_run_error(run_id, str(e))
         raise
 
     return True

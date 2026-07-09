@@ -17,7 +17,6 @@ export default function ProtectedRoute() {
   useTokenRefresh();
 
   if (!isAuthenticated()) {
-    console.warn(`Authenticated: ${isAuthenticated()}`);
     logout();
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

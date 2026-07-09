@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -21,12 +22,21 @@ class Config(BaseSettings):
     DATABASE_URL: str
     ALEMBIC_DATABASE_URL: str
 
-    SCRAPER_POLL_INTERVAL: int = 3600
     SCRAPER_WORKER_COUNT: int = 4
+    SCRAPER_POLL_FALLBACK: int = 30
 
-    PROCESSOR_POLL_INTERVAL: int = 3600
     PROCESSOR_WORKER_COUNT: int = 4
+    PROCESSOR_POLL_FALLBACK: int = 30
 
+    # worker id override (defaults to hostname:pid at startup)
+    WORKER_ID: str = ""
+    # how often the reaper scans for abandoned claims
+    WORKER_REAPER_INTERVAL: int = 60
+    # a claim held longer than this is considered abandoned
+    WORKER_STALE_CLAIM_SECONDS: int = 900
+
+    LOG_DIR: str = "logs"
+    LOG_LVL: str = "INFO"
     DEBUG_OUTPUTS: bool = True
     DEBUG_OUTPUT_DIR: str = "output_files/debug"
     SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
@@ -42,5 +52,10 @@ class Config(BaseSettings):
     API_RELOAD: bool = True
     API_ALLOWED_ORIGINS: list[str] = ["http://localhost:5173"]
 
+    @model_validator(mode="after")
+    def _ensure_log_dir(self) -> "Config":
+        Path(self.LOG_DIR).mkdir(parents=True, exist_ok=True)
+        return self
 
-config = Config()
+
+config = Config() # pyright: ignore[reportCallIssue]

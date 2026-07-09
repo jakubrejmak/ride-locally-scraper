@@ -6,66 +6,93 @@
 from datetime import datetime, timezone
 from logging import getLogger
 
-from sqlalchemy import select
+from sqlalchemy import insert, select, update
 
 from ride_locally.config import config
-from ride_locally.db.schema import ProcessStatus, ScrProcessedTable, ScrRunTable
+from ride_locally.db.schema import ProcessStatus, ScrProcessedTable
 from ride_locally.db.session import session
+from ride_locally.models.files import FileResult
+from ride_locally.models.processors import LLMProcessorConfig
+from ride_locally.models.targets import ScrRun
 from ride_locally.worker.files import read_result, save_result
 from ride_locally.worker.processors.preprocess import preprocess_file
 from ride_locally.worker.processors.process_llm import llm_process_files
 from ride_locally.worker.target_utils import get_target_config
-from ride_locally.models.files import FileResult
-from ride_locally.models.processors import LLMProcessorConfig
 
 log = getLogger(__name__)
 
 
-async def _get_existing_processed(run_id: int) -> ScrProcessedTable | None:
+async def _get_or_create_processed(run: ScrRun) -> int:
+    # exactly one processed row per run. if a previous attempt crashed we
+    # reuse the same row rather than piling up siblings.
     async with session() as s:
-        q = select(ScrProcessedTable).where(ScrProcessedTable.run_id == run_id)
-        resp = await s.execute(q)
-        result = resp.scalar_one_or_none()
-    return result
+        q = select(ScrProcessedTable.id).where(ScrProcessedTable.run_id == run.id)
+        r = await s.execute(q)
+        existing = r.scalar_one_or_none()
 
+        if existing is not None:
+            await s.execute(
+                update(ScrProcessedTable)
+                .where(ScrProcessedTable.id == existing)
+                .values(
+                    status=ProcessStatus.running,
+                    started_at=datetime.now(timezone.utc),
+                    error_message=None,
+                )
+            )
+            await s.commit()
+            return existing
 
-async def _get_process_row(run: ScrRunTable) -> ScrProcessedTable:
-    to_process = await _get_existing_processed(run.id)
-    if not to_process:
-        to_process = ScrProcessedTable(
-            run_id=run.id,
-            target_id=run.target_id,
-            o_filepath=None,
-            started_at=datetime.now(timezone.utc),
+        r = await s.execute(
+            insert(ScrProcessedTable)
+            .values(
+                run_id=run.id,
+                target_id=run.target_id,
+                status=ProcessStatus.running,
+                started_at=datetime.now(timezone.utc),
+                o_filepath=None,
+            )
+            .returning(ScrProcessedTable.id)
         )
+        new_id = r.scalar_one()
+        await s.commit()
+        return new_id
 
-    to_process.status = ProcessStatus.running
 
+async def _mark_success(processed_id: int, o_filepath: str) -> None:
     async with session() as s:
-        s.add(to_process)
+        await s.execute(
+            update(ScrProcessedTable)
+            .where(ScrProcessedTable.id == processed_id)
+            .values(
+                status=ProcessStatus.success,
+                finished_at=datetime.now(timezone.utc),
+                o_filepath=o_filepath,
+            )
+        )
         await s.commit()
 
-    return to_process
 
-
-async def _mark_as_error(run: ScrProcessedTable, message: str | None):
+async def _mark_error(processed_id: int, message: str | None) -> None:
     async with session() as s:
-        run.status = ProcessStatus.failed
-        run.finished_at = datetime.now(timezone.utc)
-        run.error_message = message
-        s.add(run)
+        await s.execute(
+            update(ScrProcessedTable)
+            .where(ScrProcessedTable.id == processed_id)
+            .values(
+                status=ProcessStatus.failed,
+                finished_at=datetime.now(timezone.utc),
+                error_message=message,
+            )
+        )
         await s.commit()
 
 
-async def run_process(
-    run: ScrRunTable,
-) -> bool:
-    """Takes a ScrRunTable row, processes its output file and saves the result to ScrProcessedTable"""
+async def run_process(run: ScrRun) -> bool:
+    """Takes a run snapshot, processes its output file, records to scr_processed."""
     if run.o_filepath is None:
-        raise ValueError(f"Scrape run: '{run.id}' has no output filepath to process")
+        raise ValueError(f"scrape run: '{run.id}' has no output filepath to process")
 
-    # in contrast to allowing multiple runs per target there needs to be exactly one process per run, hence the get existing function
-    to_process = await _get_process_row(run)
+    processed_id = await _get_or_create_processed(run)
 
     try:
         target_config = await get_target_config(run.target_id)
@@ -77,9 +104,7 @@ async def run_process(
 
         # if preprocessor is configured, run it to transform scr_result before feeding to actual processor
         if target_config.preprocessor is not None:
-            scr_result = await preprocess_file(
-                scr_result, target_config.preprocessor
-            )
+            scr_result = await preprocess_file(scr_result, target_config.preprocessor)
             if not scr_result:
                 raise Exception("Preprocessor could not produce valid result data")
 
@@ -99,19 +124,15 @@ async def run_process(
         if not filepath:
             raise ValueError("Processor result did not produce any output files")
 
-        async with session() as s:
-            to_process.status = ProcessStatus.success
-            to_process.finished_at = datetime.now(timezone.utc)
-            to_process.o_filepath = filepath
-            await s.commit()
+        await _mark_success(processed_id, filepath)
 
     except Exception as e:
         log.error(e)
-        await _mark_as_error(to_process, str(e))
+        await _mark_error(processed_id, str(e))
         return False
     except BaseException as e:
         log.error(e)
-        await _mark_as_error(to_process, str(e))
+        await _mark_error(processed_id, str(e))
         raise
 
     return True

@@ -5,21 +5,26 @@
 
 import asyncio
 import logging
+import os
 import signal
+import socket
 from logging import getLogger
-from logging.handlers import RotatingFileHandler
 
+from ride_locally.config import config
+from ride_locally.worker.notifier import notifier
 from ride_locally.worker.processor_loop import processor
+from ride_locally.worker.reaper import reaper
 from ride_locally.worker.scraper_loop import scraper
 
 log = getLogger(__name__)
+LOG_LVL_MAP = {
+    "INFO": logging.INFO,
+    "WARNING": logging.WARN,
+    "ERROR": logging.ERROR,
+}
 logging.basicConfig(
-    level=logging.INFO,
+    level=LOG_LVL_MAP[config.LOG_LVL],
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
-    handlers= [
-        logging.StreamHandler(),
-        RotatingFileHandler("worker.log", mode="a", maxBytes=10_000_000, backupCount=5)
-    ]
 )
 
 _shutdown = asyncio.Event()
@@ -39,9 +44,19 @@ async def run() -> None:
         except NotImplementedError:
             signal.signal(sig, lambda s, f: _handle_sig())
 
+    worker_id = config.WORKER_ID or f"{socket.gethostname()}:{os.getpid()}"
+
+    # NOTIFY channels -> shared events. workers await their event; notifier
+    # sets it on every LISTEN wakeup. one event per channel so scraper and
+    # processor don't wake each other spuriously.
+    target_ready = asyncio.Event()
+    run_ready = asyncio.Event()
+
     await asyncio.gather(
-        scraper(_shutdown),
-        processor(_shutdown),
+        notifier(_shutdown, target_ready, run_ready),
+        reaper(_shutdown),
+        scraper(_shutdown, target_ready, worker_id),
+        processor(_shutdown, run_ready, worker_id),
     )
 
 

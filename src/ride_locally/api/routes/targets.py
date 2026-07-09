@@ -4,8 +4,18 @@ from fastapi import APIRouter, Query, status
 
 from ride_locally.api.deps.get_session import DBSession
 from ride_locally.api.deps.get_user import user_id_dep
-from ride_locally.api.services.targets import create_target, list_targets
-from ride_locally.models.targets import GetTargetsResponse, NewScrTarget, ScrTarget
+from ride_locally.api.services.targets import (
+    create_target,
+    list_targets,
+    patch_target,
+    request_run_now,
+)
+from ride_locally.models.targets import (
+    GetTargetsResponse,
+    NewScrTarget,
+    PatchScrTarget,
+    ScrTarget,
+)
 
 router = APIRouter(
     prefix="/targets",
@@ -34,3 +44,17 @@ async def get_targets(
         search=search,
         active=active,
     )
+
+
+@router.patch("/{target_id}")
+async def update_target(
+    target_id: int, body: PatchScrTarget, db: DBSession
+) -> ScrTarget:
+    return await patch_target(db=db, target_id=target_id, body=body)
+
+
+@router.post("/run-now/{job_id}")
+async def run_now(job_id: int, db: DBSession) -> ScrTarget:
+    # bumps next_due_at to now(). trigger fires NOTIFY, next idle worker claims.
+    # 404 if unknown, 409 if inactive or currently claimed.
+    return await request_run_now(db=db, target_id=job_id)
