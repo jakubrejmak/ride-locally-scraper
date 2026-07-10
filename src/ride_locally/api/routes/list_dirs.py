@@ -22,7 +22,7 @@ async def get_scrapling_scripts_list(search: str | None = None) -> list[str]:
         if not search
         else scripts.glob(search)
     )
-    return [f.name for f in generator if f.is_file()]
+    return [str(f) for f in generator if f.is_file()]
 
 
 # @router.get("/firecrawl")

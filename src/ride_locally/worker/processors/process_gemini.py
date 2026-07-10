@@ -5,4 +5,4 @@ from ride_locally.models.processors import GeminiProviderConfig
 async def process_image(
     files: FileData, config: GeminiProviderConfig
 ) -> str | None:
-    raise ValueError(f"Gemini config not supported")
+    raise ValueError("Gemini config not supported")

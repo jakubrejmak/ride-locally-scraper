@@ -48,9 +48,11 @@ async def notifier(
     while not shutdown.is_set():
         # fires when the connection terminates for any reason
         conn_lost = asyncio.Event()
+        conn: asyncpg.connection.Connection | None = None
 
         try:
-            conn: asyncpg.connection.Connection = await asyncpg.connect(dsn)
+            conn = await asyncpg.connect(dsn)
+            assert conn is not None
 
             conn.add_termination_listener(lambda *_: conn_lost.set())
 

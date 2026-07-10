@@ -33,13 +33,39 @@ const scraplingFetcherSchema = z.enum([
   "StealthyFetcher",
 ]);
 
-const scraplingConfigSchema = z.object({
+const scraplingSimpleSchema = z
+  .object({
+    scrape_method: z.literal("scrapling"),
+    mode: z.literal("simple"),
+    fetcher: scraplingFetcherSchema.optional(),
+    selectors: z.array(z.string()).nullable().optional(),
+    force_mime: z.string().nullable().optional(),
+  })
+  .refine(
+    (v) =>
+      !(
+        v.selectors &&
+        v.selectors.length > 0 &&
+        v.force_mime &&
+        v.force_mime.length > 0
+      ),
+    {
+      path: ["force_mime"],
+      message:
+        "force_mime is meaningless when selectors are set (output is always text/html)",
+    }
+  );
+
+const scraplingScriptSchema = z.object({
   scrape_method: z.literal("scrapling"),
-  force_mime: z.string().nullable().optional(),
-  fetcher: scraplingFetcherSchema.optional(),
-  selectors: z.array(z.string()).nullable().optional(),
-  script_path: z.string().nullable().optional(),
+  mode: z.literal("script"),
+  script_path: z.string().min(1),
 });
+
+const scraplingConfigSchema = z.discriminatedUnion("mode", [
+  scraplingSimpleSchema,
+  scraplingScriptSchema,
+]);
 
 const scraperConfigSchema = z.discriminatedUnion("scrape_method", [
   firecrawlConfigSchema,
@@ -99,6 +125,7 @@ export type Target = NewTarget & { id: number };
 
 type Step = 1 | 2 | 3 | 4;
 type ScrapeMethod = "firecrawl" | "scrapling";
+type ScraplingMode = "simple" | "script";
 type LlmProvider = "openrouter" | "gemini";
 
 type ToolDraft = {
@@ -166,6 +193,7 @@ export default function AddTarget(): React.ReactNode {
 
   const [scrapeMethod, setScrapeMethod] = useState<ScrapeMethod>("scrapling");
   const [firecrawlFormat, setFirecrawlFormat] = useState<string>("");
+  const [scraplingMode, setScraplingMode] = useState<ScraplingMode>("simple");
   const [scraplingFetcher, setScraplingFetcher] = useState<"AsyncFetcher" | "DynamicFetcher" | "StealthyFetcher">("AsyncFetcher");
   const [scraplingForceMime, setScraplingForceMime] = useState<string>("");
   const [scraplingSelectors, setScraplingSelectors] = useState<string>("");
@@ -214,18 +242,24 @@ export default function AddTarget(): React.ReactNode {
         scrape_method: "firecrawl" as const,
         format: firecrawlFormat.trim() ? firecrawlFormat.trim() : null,
       }
-      : {
-        scrape_method: "scrapling" as const,
-        fetcher: scraplingFetcher,
-        force_mime: scraplingForceMime.trim() ? scraplingForceMime.trim() : null,
-        script_path: scriptPath.trim() ? scriptPath.trim() : null,
-        selectors: scraplingSelectors.trim()
-          ? scraplingSelectors
-            .split("\n")
-            .map((s) => s.trim())
-            .filter(Boolean)
-          : null,
-      };
+      : scraplingMode === "script"
+        ? {
+          scrape_method: "scrapling" as const,
+          mode: "script" as const,
+          script_path: scriptPath.trim(),
+        }
+        : {
+          scrape_method: "scrapling" as const,
+          mode: "simple" as const,
+          fetcher: scraplingFetcher,
+          force_mime: scraplingForceMime.trim() ? scraplingForceMime.trim() : null,
+          selectors: scraplingSelectors.trim()
+            ? scraplingSelectors
+              .split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean)
+            : null,
+        };
 
     const preprocessor = usePreprocessor
       ? {
@@ -382,6 +416,7 @@ export default function AddTarget(): React.ReactNode {
     cron,
     scrapeMethod,
     firecrawlFormat,
+    scraplingMode,
     scraplingFetcher,
     scraplingForceMime,
     scraplingSelectors,
@@ -532,80 +567,99 @@ export default function AddTarget(): React.ReactNode {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <label htmlFor="fetcher" className="mb-1 block text-sm text-white">Fetcher</label>
+                  <div className="sm:col-span-3">
+                    <label htmlFor="scrapling_mode" className="mb-1 block text-sm text-white">Mode</label>
                     <select
-                      id="fetcher"
-                      value={scraplingFetcher}
-                      onChange={(e) => setScraplingFetcher(e.target.value as typeof scraplingFetcher)}
+                      id="scrapling_mode"
+                      value={scraplingMode}
+                      onChange={(e) => setScraplingMode(e.target.value as ScraplingMode)}
                       className="text-input w-full"
                     >
-                      <option value="AsyncFetcher">AsyncFetcher</option>
-                      <option value="DynamicFetcher">DynamicFetcher</option>
-                      <option value="StealthyFetcher">StealthyFetcher</option>
+                      <option value="simple">Simple (fetch + optional selectors)</option>
+                      <option value="script">Script (custom Python)</option>
                     </select>
                   </div>
 
-                  <div>
-                    <label htmlFor="force_mime" className="mb-1 block text-sm text-white">Force mime (optional)</label>
-                    <input
-                      id="force_mime"
-                      className="text-input w-full"
-                      value={scraplingForceMime}
-                      onChange={(e) => setScraplingForceMime(e.target.value)}
-                    />
-                  </div>
+                  {scraplingMode === "simple" ? (
+                    <>
+                      <div>
+                        <label htmlFor="fetcher" className="mb-1 block text-sm text-white">Fetcher</label>
+                        <select
+                          id="fetcher"
+                          value={scraplingFetcher}
+                          onChange={(e) => setScraplingFetcher(e.target.value as typeof scraplingFetcher)}
+                          className="text-input w-full"
+                        >
+                          <option value="AsyncFetcher">AsyncFetcher</option>
+                          <option value="DynamicFetcher">DynamicFetcher</option>
+                          <option value="StealthyFetcher">StealthyFetcher</option>
+                        </select>
+                      </div>
 
-                  <div className="sm:col-span-3">
-                    <label htmlFor="selectors" className="mb-1 block text-sm text-white">Selectors (one per line, optional)</label>
-                    <textarea
-                      id="selectors"
-                      className="text-input min-h-28 w-full"
-                      value={scraplingSelectors}
-                      onChange={(e) => setScraplingSelectors(e.target.value)}
-                      placeholder="table tr"
-                    />
-                  </div>
+                      <div>
+                        <label htmlFor="force_mime" className="mb-1 block text-sm text-white">Force mime (optional)</label>
+                        <input
+                          id="force_mime"
+                          className="text-input w-full"
+                          value={scraplingForceMime}
+                          onChange={(e) => setScraplingForceMime(e.target.value)}
+                          disabled={!!scraplingSelectors.trim()}
+                          placeholder={scraplingSelectors.trim() ? "disabled while selectors are set" : ""}
+                        />
+                      </div>
 
-                  <div className="sm:col-span-3">
-                    <label htmlFor="script_path" className="mb-1 block text-sm text-white">Playwright script path (optional)</label>
-                    <Combobox.Root
-                      items={scriptsList}
-                      inputValue={scriptPath}
-                      onInputValueChange={(value) => setScriptPath(value)}
-                      value={scriptPath || null}
-                      onValueChange={(value) => setScriptPath(value ?? "")}
-                      // server-side filtering: bypass internal filter
-                      filter={() => true}
-                    >
-                      <Combobox.Input
-                        id="script_path"
-                        className="text-input w-full"
-                        placeholder="worker/scrapers/scripts/custom.py"
-                        autoComplete="off"
-                      />
-                      <Combobox.Portal>
-                        <Combobox.Positioner sideOffset={4} align="start" className="z-10">
-                          <Combobox.Popup className="max-h-64 w-[var(--anchor-width)] overflow-auto rounded-xl border border-accent-light/30 bg-surface/95 p-1 shadow-lg backdrop-blur-sm outline-none">
-                            <Combobox.Empty className="px-3 py-2 text-sm text-white/60">
-                              No scripts found
-                            </Combobox.Empty>
-                            <Combobox.List>
-                              {(script: string) => (
-                                <Combobox.Item
-                                  key={script}
-                                  value={script}
-                                  className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-white/80 data-[highlighted]:bg-white/5 data-[highlighted]:text-white"
-                                >
-                                  {script}
-                                </Combobox.Item>
-                              )}
-                            </Combobox.List>
-                          </Combobox.Popup>
-                        </Combobox.Positioner>
-                      </Combobox.Portal>
-                    </Combobox.Root>
-                  </div>
+                      <div className="sm:col-span-3">
+                        <label htmlFor="selectors" className="mb-1 block text-sm text-white">Selectors (one per line, optional)</label>
+                        <textarea
+                          id="selectors"
+                          className="text-input min-h-28 w-full"
+                          value={scraplingSelectors}
+                          onChange={(e) => setScraplingSelectors(e.target.value)}
+                          placeholder="table tr"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="sm:col-span-3">
+                      <label htmlFor="script_path" className="mb-1 block text-sm text-white">Script path</label>
+                      <Combobox.Root
+                        items={scriptsList}
+                        inputValue={scriptPath}
+                        onInputValueChange={(value) => setScriptPath(value)}
+                        value={scriptPath || null}
+                        onValueChange={(value) => setScriptPath(value ?? "")}
+                        // server-side filtering: bypass internal filter
+                        filter={() => true}
+                      >
+                        <Combobox.Input
+                          id="script_path"
+                          className="text-input w-full"
+                          placeholder="worker/scrapers/scripts/custom.py"
+                          autoComplete="off"
+                        />
+                        <Combobox.Portal>
+                          <Combobox.Positioner sideOffset={4} align="start" className="z-10">
+                            <Combobox.Popup className="max-h-64 w-[var(--anchor-width)] overflow-auto rounded-xl border border-accent-light/30 bg-surface/95 p-1 shadow-lg backdrop-blur-sm outline-none">
+                              <Combobox.Empty className="px-3 py-2 text-sm text-white/60">
+                                No scripts found
+                              </Combobox.Empty>
+                              <Combobox.List>
+                                {(script: string) => (
+                                  <Combobox.Item
+                                    key={script}
+                                    value={script}
+                                    className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-white/80 data-[highlighted]:bg-white/5 data-[highlighted]:text-white"
+                                  >
+                                    {script}
+                                  </Combobox.Item>
+                                )}
+                              </Combobox.List>
+                            </Combobox.Popup>
+                          </Combobox.Positioner>
+                        </Combobox.Portal>
+                      </Combobox.Root>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -4,65 +4,73 @@ import inspect
 from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
 
 from ride_locally.models.files import FileData, FileResult
-from ride_locally.models.scrapers import ScraplingConfig
+from ride_locally.models.scrapers import (
+    ScraplingScriptConfig,
+    ScraplingSimpleConfig,
+)
 from ride_locally.models.targets import ScrScriptResult
 from ride_locally.worker.files import mime_from_bytes
-
-FETCHERS = {
-    "AsyncFetcher": AsyncFetcher,
-    "DynamicFetcher": DynamicFetcher,
-    "StealthyFetcher": StealthyFetcher,
-}
+from ride_locally.worker.scrapers.exceptions import ScraperProcessException
 
 
-async def _execute_script(
-    fetcher: type[DynamicFetcher | StealthyFetcher], filepath: str, url: str
-) -> ScrScriptResult | None:
+async def _execute_script(filepath: str, url: str) -> ScrScriptResult | None:
     spec = importlib.util.spec_from_file_location("scrapling_script", filepath)
     if not spec or not spec.loader:
         raise ValueError(f"Could not load script from {filepath}")
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+
+    if not hasattr(module, "run"):
+        raise ValueError(f"{filepath} must define 'async def run(url)'")
     sig = inspect.signature(module.run)
+    if list(sig.parameters) != ["url"]:
+        raise ValueError(f"{filepath} must define 'async def run(url)'")
 
-    if not hasattr(module, "run") or list(sig.parameters) != ["fetcher", "url"]:
-        raise ValueError(f"{filepath} must define 'async def run(fetcher, url)'")
+    return await module.run(url)
 
-    return await module.run(fetcher, url)
+
+def _apply_selectors(page, selectors: list[str]) -> bytes:
+    fragments: list[str] = []
+    for sel in selectors:
+        matches = page.css(sel)
+        if not matches:
+            raise ScraperProcessException(f"Selector matched nothing: {sel!r}")
+        for m in matches:
+            fragments.append(str(m.html_content))
+    return "".join(fragments).encode("utf-8")
 
 
 async def run_scrapling(
-    url: str, config: ScraplingConfig
+    url: str, config: ScraplingSimpleConfig | ScraplingScriptConfig
 ) -> FileResult | ScrScriptResult | None:
-    fetcher = FETCHERS[config.fetcher]
+    if isinstance(config, ScraplingScriptConfig):
+        return await _execute_script(config.script_path, url)
 
-    def _fetch(fetcher, url: str):
-        if fetcher is AsyncFetcher:
-            return fetcher.get(url)
-        return fetcher.async_fetch(url)
+    match config.fetcher:
+        case "AsyncFetcher":
+            page = await AsyncFetcher.get(url)
+        case "DynamicFetcher":
+            page = await DynamicFetcher.async_fetch(url)
+        case "StealthyFetcher":
+            page = await StealthyFetcher.async_fetch(url)
 
-    result: ScrScriptResult | FileResult | None = None
-    if config.script_path and fetcher is not AsyncFetcher:
-        # custom script path
-        result = await _execute_script(fetcher, config.script_path, url)
-    elif config.selectors:
-        # TODO selector paths
-        for s in config.selectors:
-            pass
-    else:
-        # whole page path
-        page = await _fetch(fetcher, url=url)
-        got_mime, got_ext = mime_from_bytes(page.body)
-        if not got_mime:
-            raise Exception("Content type could not be inferred")
-        expected = config.force_mime
-        if expected and expected != got_mime:
-            raise ValueError(
-                f"The forced mime type: '{expected}' is different than the type got: '{got_mime}'"
+    if config.selectors:
+        # browser transports always render html. AsyncFetcher can hit non-html
+        # urls, so validate before parsing.
+        source_mime, _ = mime_from_bytes(page.body)
+        if source_mime != "text/html":
+            raise ScraperProcessException(
+                f"Selectors require HTML input, got mime: {source_mime}"
             )
-        result = FileResult(
-            data=[FileData(mime=got_mime, ext=got_ext, bytes=page.body)]
-        )
+        body = _apply_selectors(page, config.selectors)
+        return FileResult(data=[FileData(mime="text/html", ext="html", bytes=body)])
 
-    return result
+    got_mime, got_ext = mime_from_bytes(page.body)
+    if not got_mime:
+        raise ScraperProcessException("Content type could not be inferred")
+    if config.force_mime and config.force_mime != got_mime:
+        raise ValueError(
+            f"The forced mime type: '{config.force_mime}' is different than the type got: '{got_mime}'"
+        )
+    return FileResult(data=[FileData(mime=got_mime, ext=got_ext, bytes=page.body)])

@@ -46,3 +46,9 @@ ride-locally-worker = "ride_locally.worker.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.411",
+    "ruff>=0.15.21",
+]

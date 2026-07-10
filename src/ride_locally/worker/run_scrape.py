@@ -12,7 +12,11 @@ from ride_locally.config import config
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from ride_locally.db.session import session
 from ride_locally.models.files import FileResult
-from ride_locally.models.scrapers import FirecrawlConfig, ScraplingConfig
+from ride_locally.models.scrapers import (
+    FirecrawlConfig,
+    ScraplingScriptConfig,
+    ScraplingSimpleConfig,
+)
 from ride_locally.models.targets import NewScrTarget, ScrScriptResult, ScrTarget
 from ride_locally.worker.files import diff_file_results, save_result
 from ride_locally.worker.scrapers.run_firecrawl import run_firecrawl
@@ -192,7 +196,7 @@ async def run_scrape(target: ScrTarget) -> bool:
         match target.config.scraper:
             case FirecrawlConfig() as scraper:
                 result = await run_firecrawl(target.url, scraper)
-            case ScraplingConfig() as scraper:
+            case ScraplingSimpleConfig() | ScraplingScriptConfig() as scraper:
                 result = await run_scrapling(target.url, scraper)
             case _:
                 raise ValueError("No scrape method provided")

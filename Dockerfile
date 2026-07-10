@@ -8,10 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 COPY src src
+
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -e ".[api]"
+    uv sync --frozen --no-dev --extra api
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+RUN python -m playwright install --with-deps chromium
 
 COPY alembic alembic
 COPY alembic.ini .
