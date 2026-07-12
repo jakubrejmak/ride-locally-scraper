@@ -13,7 +13,6 @@ from ride_locally.api.services.targets import (
 from ride_locally.models.targets import (
     GetTargetsResponse,
     NewScrTarget,
-    PatchScrTarget,
     ScrTarget,
 )
 
@@ -48,7 +47,7 @@ async def get_targets(
 
 @router.patch("/{target_id}")
 async def update_target(
-    target_id: int, body: PatchScrTarget, db: DBSession
+    target_id: int, body: NewScrTarget, db: DBSession
 ) -> ScrTarget:
     return await patch_target(db=db, target_id=target_id, body=body)
 

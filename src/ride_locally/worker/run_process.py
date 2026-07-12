@@ -17,7 +17,7 @@ from ride_locally.models.targets import ScrRun
 from ride_locally.worker.files import read_result, save_result
 from ride_locally.worker.processors.preprocess import preprocess_file
 from ride_locally.worker.processors.process_llm import llm_process_files
-from ride_locally.worker.target_utils import get_target_config
+from ride_locally.worker.utils.shared import get_target_config
 
 log = getLogger(__name__)
 

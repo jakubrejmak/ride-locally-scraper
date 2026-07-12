@@ -33,26 +33,11 @@ class NewScrTarget(BaseModel):
     # None = one-shot, run immediately, never reschedule.
     # workers/API set this to now() for "run now", or croniter(cron).get_next(now)
     # on release. defaults None so existing API callers keep working.
-    next_due_at: datetime | None = None
+    next_due_at: datetime | None
 
 
 class ScrTarget(NewScrTarget):
     id: int
-
-
-class PatchScrTarget(BaseModel):
-    # all-optional mirror of NewScrTarget for PATCH semantics. combined with
-    # model_dump(exclude_unset=True) this gives "only what the client sent".
-    model_config = ConfigDict(from_attributes=True)
-
-    name: str | None = None
-    url: str | None = None
-    config: ScrTargetConfig | None = None
-    is_active: bool | None = None
-    schedule_cron: str | None = None
-    carrier_id: int | None = None
-    priority: int | None = None
-    next_due_at: datetime | None = None
 
 
 class ScrRun(BaseModel):
@@ -83,4 +68,5 @@ class GetTargetsResponse(BaseModel):
 class ScrScriptResult(BaseModel):
     new_targets: list[NewScrTarget] | None
     self_update: NewScrTarget | None
-    run_result: FileResult | None
+    run_file_result: FileResult | None
+    meta: dict | None

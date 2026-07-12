@@ -2,7 +2,7 @@ import asyncio
 from logging import getLogger
 
 from ride_locally.config import config
-from ride_locally.worker.target_utils import reap_stale_claims
+from ride_locally.worker.utils.loop_utils import reap_stale_claims
 from ride_locally.worker.wait import sleep_or_shutdown
 
 log = getLogger(__name__)

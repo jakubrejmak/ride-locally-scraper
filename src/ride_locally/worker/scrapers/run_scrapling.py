@@ -45,12 +45,10 @@ async def run_scrapling(
     url: str, config: ScraplingSimpleConfig | ScraplingScriptConfig
 ) -> FileResult | ScrScriptResult | None:
     if isinstance(config, ScraplingScriptConfig):
-        """
-        Custom script path needs to return non `None` result in order to qualify for processing.
-        It may however intentionally return `None` to perform actions supported by ScrFileResult spec,
-        without scheduling a run for processing.
-        Scripts can perform arbitrary actions. The only guiderail is they must define `async def run(url)` function.
-        """
+        # Custom script path needs to return non `None` result in order to qualify for processing.
+        # It may however intentionally return `None` to perform actions supported by ScrFileResult spec,
+        # without scheduling a run for processing.
+        # Scripts can perform arbitrary actions. The only guiderail is they must define `async def run(url)` function.
         return await _execute_script(config.script_path, url)
 
     match config.fetcher:

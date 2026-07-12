@@ -3,7 +3,7 @@ from logging import getLogger
 
 from ride_locally.config import config
 from ride_locally.worker.run_process import run_process
-from ride_locally.worker.target_utils import claim_processor_run, release_processor_run
+from ride_locally.worker.utils.loop_utils import claim_processor_run, release_processor_run
 from ride_locally.worker.wait import wait_or_shutdown
 
 log = getLogger(__name__)

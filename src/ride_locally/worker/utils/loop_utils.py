@@ -16,18 +16,6 @@ log = getLogger(__name__)
 # failures from waiting a full cron cycle to retry.
 _SCRAPE_RETRY_DELAY = timedelta(minutes=5)
 
-###
-# shared
-###
-
-
-async def get_target_config(target_id: int) -> ScrTargetConfig:
-    async with session() as s:
-        q = select(ScrTargetTable.config).where(ScrTargetTable.id == target_id)
-        r = await s.execute(q)
-        cfg = r.scalar_one()
-    return ScrTargetConfig.model_validate(cfg)
-
 
 ###
 # scraper

@@ -10,7 +10,6 @@ from ride_locally.db.schema import ScrTargetTable
 from ride_locally.models.targets import (
     GetTargetsResponse,
     NewScrTarget,
-    PatchScrTarget,
     ScrTarget,
 )
 
@@ -39,7 +38,7 @@ async def create_target(*, db: AsyncSession, body: NewScrTarget) -> ScrTarget:
 
 
 async def patch_target(
-    *, db: AsyncSession, target_id: int, body: PatchScrTarget
+    *, db: AsyncSession, target_id: int, body: NewScrTarget
 ) -> ScrTarget:
     # rejected while claimed - a running scrape's release would clobber the
     # caller's changes on next_due_at. simpler to disallow than to reconcile.
