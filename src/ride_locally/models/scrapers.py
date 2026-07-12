@@ -40,6 +40,6 @@ class ScraplingScriptConfig(BaseModel):
 
 
 ScraplingConfig = Annotated[
-    Union[ScraplingSimpleConfig, ScraplingScriptConfig],
+    ScraplingSimpleConfig | ScraplingScriptConfig,
     Field(discriminator="mode"),
 ]

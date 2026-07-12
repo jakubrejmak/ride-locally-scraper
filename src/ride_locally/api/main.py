@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import logging
 
 import uvicorn
@@ -12,10 +13,19 @@ from ride_locally.api.routes.list_dirs import (
 )
 from ride_locally.api.routes.targets import router as targets
 from ride_locally.config import config
+from ride_locally.api.services.seed_admin import seed_admin_user
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await seed_admin_user()
+
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.include_router(auth)
 app.include_router(targets)
 app.include_router(list_scripts_directory)

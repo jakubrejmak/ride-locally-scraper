@@ -46,7 +46,7 @@ class Config(BaseSettings):
 
     API_ADMIN_EMAIL: str = "admin@email.com"
     API_ADMIN_USERNAME: str = "admin"
-    API_ADMIN_PASSWORD: str = "changeme"
+    API_ADMIN_PASSWORD: str = "admin"
     API_HOST: str = "127.0.0.1"
     API_PORT: int = 8000
     API_RELOAD: bool = True

@@ -63,6 +63,7 @@ class ScrRun(BaseModel):
     id: int
     target_id: int
     status: ScrapeStatus
+    meta: dict | None
     priority: int
     should_process: bool
     o_filepath: str | None

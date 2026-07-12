@@ -32,6 +32,11 @@ ProcessStatus: TypeAlias = Status
 
 
 class ScrTargetTable(Base):
+    """
+    Target to run scraper against.
+    The scraper will run against the `url` value on periodic interval defined in `schedule_cron` 
+    and produce output in `scr_runs` (scraper runs) table.
+    """
     __tablename__ = "scr_targets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -60,6 +65,12 @@ class ScrTargetTable(Base):
 
 # runs appear every time a scrape is performed and are later claimed by processor
 class ScrRunTable(Base):
+    """
+    When scraper puts row with `should_process = True` in this table, it becomes eligible for processing.
+    Processing is an action of taking `o_filepath` and running processor on it.
+    Runs with `should_process = False` represent scraper runs that resulted in the same file as the
+    previus run for a target, scraper runs that performed actions with custom scripts etc.
+    """
     __tablename__ = "scr_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -75,6 +86,7 @@ class ScrRunTable(Base):
     # False = scrape produced no diff vs previous run, processor should skip it.
     # decided at scrape-finish so the processor never diffs at pop time.
     should_process: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    meta: Mapped[dict] = mapped_column(JSONB, nullable=True)
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     claimed_by: Mapped[str | None] = mapped_column(String(255))
     o_filepath: Mapped[str | None] = mapped_column(Text)

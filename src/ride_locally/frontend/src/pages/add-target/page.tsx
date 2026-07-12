@@ -567,7 +567,7 @@ export default function AddTarget(): React.ReactNode {
                 </div>
               ) : (
                 <>
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-2">
                     <label htmlFor="scrapling_mode" className="mb-1 block text-sm text-white">Mode</label>
                     <select
                       id="scrapling_mode"
@@ -596,7 +596,7 @@ export default function AddTarget(): React.ReactNode {
                         </select>
                       </div>
 
-                      <div>
+                      <div className="col-span-2">
                         <label htmlFor="force_mime" className="mb-1 block text-sm text-white">Force mime (optional)</label>
                         <input
                           id="force_mime"

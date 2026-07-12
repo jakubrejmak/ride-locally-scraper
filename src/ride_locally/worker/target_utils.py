@@ -8,13 +8,6 @@ from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from ride_locally.db.session import session
 from ride_locally.models.targets import ScrRun, ScrTarget, ScrTargetConfig
 
-###
-# shared claim / release helpers
-#
-# every worker action is one targeted SQL statement keyed by id. no ORM row
-# objects flow across function boundaries; snapshots (ScrTarget / ScrRun)
-# are frozen-by-convention and are the only shape workers ever see.
-###
 
 log = getLogger(__name__)
 
@@ -22,6 +15,10 @@ log = getLogger(__name__)
 # cron or when the next cron slot is farther out than this. keeps transient
 # failures from waiting a full cron cycle to retry.
 _SCRAPE_RETRY_DELAY = timedelta(minutes=5)
+
+###
+# shared
+###
 
 
 async def get_target_config(target_id: int) -> ScrTargetConfig:

@@ -2,11 +2,14 @@
 #   scraper service
 ###
 
+from collections.abc import Awaitable
 from datetime import datetime, timezone
 from logging import getLogger
 from logging.handlers import RotatingFileHandler
+from typing import Callable
 
 from sqlalchemy import insert, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ride_locally.config import config
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
@@ -101,11 +104,31 @@ async def handle_self_update(
     return diff
 
 
+async def _similar_targets(
+    session: AsyncSession, target: NewScrTarget, similarity_treshold: float
+) -> list[ScrTargetTable]:
+    return []
+
+
 async def handle_new_targets(
     new_targets: list[NewScrTarget] | None,
+    *,
+    warn_on_duplicate: bool = False,
+    discard_duplicates: bool = False,
+    duplicate_comp_func: Callable[[AsyncSession, NewScrTarget], Awaitable[bool]]
+    | None = None,
 ) -> tuple[list[NewScrTarget], list[NewScrTarget]]:
-    # scraper scripts can spawn new targets (e.g. crawler-style discovery).
-    # each insert is isolated so a single bad row doesn't drop the batch.
+    """
+    Adds new scraper targets to `scr_targets`.
+
+    params:
+        warn_on_duplicate: bool - emits warning level log at each target deemed duplicated by the default comparator function.
+        discard_duplicates: bool - target will be omitted if deemed duplicated by default comparator function
+        duplicate_comp_func: Callable[[AsyncSession, NewScrTarget], Awaitable[bool]] - custom comparator function. Returns True if target should be inserted, False to skip target. Passing this function invalidates `warn_on_duplicate` and `discard_duplicates` parameters.
+    returns:
+        tuple of lists with added and failed targets, where failed targets are those whose insert threw an Exception
+    """
+
     if not new_targets:
         return [], []
 
@@ -119,10 +142,29 @@ async def handle_new_targets(
             # new targets become immediately due unless the payload set
             # next_due_at explicitly. matches the "create -> run soon" UX.
             vals.setdefault("next_due_at", now)
+
+            should_append = False
             async with session() as s:
-                await s.execute(insert(ScrTargetTable).values(**vals))
+                if duplicate_comp_func is not None:
+                    should_append = await duplicate_comp_func(s, t)
+                else:
+                    duplicates = await _similar_targets(s, t, 0.75)
+                    if len(duplicates) > 0:
+                        if warn_on_duplicate:
+                            log.warning(
+                                f"""Target {t.name} has {len(duplicates)} possible duplicates:
+                                {duplicates}
+                                """
+                            )
+                        if discard_duplicates:
+                            should_append = False
+
+                if should_append:
+                    await s.execute(insert(ScrTargetTable).values(**vals))
+                    added.append(t)
+
                 await s.commit()
-            added.append(t)
+
         except Exception:
             log.error(f"failed to create target: {t}")
             failed.append(t)
@@ -211,23 +253,28 @@ async def run_scrape(target: ScrTarget) -> bool:
             await handle_new_targets(result.new_targets)
             if result.run_result:
                 o_filepath = save_result(result.run_result, config.SCRAPER_OUTPUT_DIR)
+        elif result is None:
+            pass  # None results do not qualify for processing
 
-        # decide should_process now, so the processor never has to diff at pop time.
-        # rules: no output -> nothing to process.
-        #        no previous output -> first run for this target, process it.
-        #        otherwise -> process only if content changed.
+        """
+        Mark scraper run row with `should_process` flag depending on Scraper output.
+        For runs that returned `None` the `should_process` is always False
+        """
         should_process = False
         if o_filepath:
             prev = await _get_prev_run_filepath(target.id, run_id)
             if prev is None:
+                # if there is no previous run - nothing to diff against -> should_process = True
                 should_process = True
             else:
                 try:
+                    # if previous run exists - diff against current one - if they differ -> should_process = True
                     should_process = diff_file_results(o_filepath, prev)
                 except Exception:
-                    # if the diff itself fails (unreadable prev file etc.),
-                    # err on the side of processing rather than silently skipping.
-                    log.exception(f"diff failed for run {run_id}, defaulting to process")
+                    # if the diff itself fails (unreadable prev file etc.) -> should_process = True
+                    log.exception(
+                        f"diff failed for run {run_id}, defaulting to process"
+                    )
                     should_process = True
 
         await _mark_run_success(run_id, o_filepath, should_process)
