@@ -105,7 +105,7 @@ async def handle_self_update(
 
 
 async def _similar_targets(
-    session: AsyncSession, target: NewScrTarget, similarity_treshold: float
+    session: AsyncSession, target: NewScrTarget, similarity_threshold: float
 ) -> list[ScrTargetTable]:
     return []
 
@@ -143,12 +143,12 @@ async def handle_new_targets(
             # next_due_at explicitly. matches the "create -> run soon" UX.
             vals.setdefault("next_due_at", now)
 
-            should_append = False
+            should_append = True
             async with session() as s:
                 if duplicate_comp_func is not None:
                     should_append = await duplicate_comp_func(s, t)
                 else:
-                    duplicates = await _similar_targets(s, t, 0.75)
+                    duplicates = await _similar_targets(s, t, 0.85)
                     if len(duplicates) > 0:
                         if warn_on_duplicate:
                             log.warning(
