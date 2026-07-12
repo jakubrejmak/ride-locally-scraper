@@ -8,7 +8,7 @@ from logging import getLogger
 from logging.handlers import RotatingFileHandler
 from typing import Callable
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import func, insert, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ride_locally.config import config
@@ -107,7 +107,40 @@ async def handle_self_update(
 async def _similar_targets(
     session: AsyncSession, target: NewScrTarget, similarity_threshold: float
 ) -> list[ScrTargetTable]:
-    return []
+    """
+    Existing scr_targets whose `name` or `url` trigram-matches `target` at or
+    above `similarity_threshold` (0-1), ordered most-similar first. Empty list
+    means "no duplicate candidates".
+
+    Uses pg_trgm's `%` operator so the gin_trgm_ops indexes on name/url get
+    used instead of a seq scan. The threshold is scoped to the current
+    transaction via SET LOCAL so we don't leak it to other queries sharing
+    the pooled connection. AsyncSession opens its transaction lazily on the
+    first execute(), so this SET is what starts it.
+    """
+    # SET does not accept bind params, hence string interpolation
+    thr = float(similarity_threshold)
+    await session.execute(
+        text(f"SET LOCAL pg_trgm.similarity_threshold = {thr}")
+    )
+
+    q = (
+        select(ScrTargetTable)
+        .where(
+            or_(
+                ScrTargetTable.name.op("%")(target.name),
+                ScrTargetTable.url.op("%")(target.url),
+            )
+        )
+        .order_by(
+            func.greatest(
+                func.similarity(ScrTargetTable.name, target.name),
+                func.similarity(ScrTargetTable.url, target.url),
+            ).desc()
+        )
+    )
+    r = await session.execute(q)
+    return list(r.scalars().all())
 
 
 async def handle_new_targets(
