@@ -34,7 +34,7 @@ async def update_scr_target(
     return diff
 
 
-async def get_similar_targets(
+async def _get_similar_targets_trgm(
     session: AsyncSession, target: NewScrTarget, similarity_threshold: float
 ) -> list[ScrTargetTable]:
     """
@@ -66,6 +66,18 @@ async def get_similar_targets(
                 func.similarity(ScrTargetTable.url, target.url),
             ).desc()
         )
+    )
+    r = await session.execute(q)
+    return list(r.scalars().all())
+
+
+async def _get_duplicate_targets_url(
+    session: AsyncSession, target: NewScrTarget
+) -> list[ScrTargetTable]:
+
+    q = (
+        select(ScrTargetTable)
+        .where(ScrTargetTable.url == target.url)
     )
     r = await session.execute(q)
     return list(r.scalars().all())
@@ -106,7 +118,7 @@ async def add_new_targets(
                 if duplicate_comp_func is not None:
                     should_append = await duplicate_comp_func(s, t)
                 else:
-                    duplicates = await get_similar_targets(s, t, 0.85)
+                    duplicates = await _get_duplicate_targets_url(s, t)
                     if len(duplicates) > 0:
                         if warn_on_duplicate:
                             log.warning(

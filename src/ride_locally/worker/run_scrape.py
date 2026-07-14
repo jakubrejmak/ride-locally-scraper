@@ -58,7 +58,7 @@ async def _insert_run(target: ScrTarget) -> int:
                 status=ScrapeStatus.running,
                 priority=target.priority,
                 started_at=datetime.now(timezone.utc),
-                should_process=True,  # provisional; finalized on success
+                should_process=False,  # provisional; finalized on success
             )
             .returning(ScrRunTable.id)
         )
@@ -68,10 +68,10 @@ async def _insert_run(target: ScrTarget) -> int:
 
 
 async def _mark_run_success(
-    run_id: int, o_filepath: str | None, should_process: bool
+    run_id: int, o_filepath: str | None, should_process: bool, run_meta: dict | None
 ) -> None:
     async with session() as s:
-        await s.execute(
+        _ = await s.execute(
             update(ScrRunTable)
             .where(ScrRunTable.id == run_id)
             .values(
@@ -79,6 +79,7 @@ async def _mark_run_success(
                 finished_at=datetime.now(timezone.utc),
                 o_filepath=o_filepath,
                 should_process=should_process,
+                meta=run_meta,
             )
         )
         await s.commit()
@@ -118,6 +119,7 @@ async def run_scrape(target: ScrTarget) -> bool:
                 raise ValueError("No scrape method provided")
 
         o_filepath: str | None = None
+        run_meta: dict | None = None
 
         if isinstance(result, FileResult):
             if result:
@@ -126,9 +128,10 @@ async def run_scrape(target: ScrTarget) -> bool:
             if result.self_update:
                 await update_scr_target(target, result.self_update)
             if result.new_targets:
-                await add_new_targets(result.new_targets)
+                await add_new_targets(result.new_targets, duplicate_comp_func=result.duplicate_comp_func or None)
             if result.run_file_result:
                 o_filepath = save_result(result.run_file_result, config.SCRAPER_OUTPUT_DIR)
+            run_meta = result.run_meta # only ScrScriptResult has run_meta attached
         elif result is None:
             pass  # None results do not qualify for processing
 
@@ -153,7 +156,7 @@ async def run_scrape(target: ScrTarget) -> bool:
                     )
                     should_process = True
 
-        await _mark_run_success(run_id, o_filepath, should_process)
+        await _mark_run_success(run_id, o_filepath, should_process, run_meta)
 
         log.info(
             f"""finished scrape for target: {target.name or target.id} at

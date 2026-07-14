@@ -1,6 +1,9 @@
+from collections.abc import Awaitable
 from datetime import datetime
+from typing import Callable
 
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import Annotated
 
 from ride_locally.db.schema import ScrapeStatus
@@ -67,6 +70,7 @@ class GetTargetsResponse(BaseModel):
 
 class ScrScriptResult(BaseModel):
     new_targets: list[NewScrTarget] | None
+    new_targets_duplicate_comp_func: Callable[[AsyncSession, NewScrTarget], Awaitable[bool]] | None = Field(default=None, description="Function run against every new target. Returns True - adds target to database, False - skips target")
     self_update: NewScrTarget | None
     run_file_result: FileResult | None
-    meta: dict | None
+    run_meta: dict | None = None
