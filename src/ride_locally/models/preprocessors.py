@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -53,4 +53,4 @@ class PreprocessorTool(BaseModel):
 
 
 class PreprocessorConfig(BaseModel):
-    tools: Optional[list[PreprocessorTool]] = None
+    tools: list[PreprocessorTool] | None = None

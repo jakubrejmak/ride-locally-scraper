@@ -5,6 +5,7 @@
 from datetime import datetime, timezone
 from logging import getLogger
 from logging.handlers import RotatingFileHandler
+from typing import Any
 
 from sqlalchemy import insert, select, update
 
@@ -21,7 +22,9 @@ from ride_locally.models.targets import ScrScriptResult, ScrTarget
 from ride_locally.worker.files import diff_file_results, save_result
 from ride_locally.worker.scrapers.run_firecrawl import run_firecrawl
 from ride_locally.worker.scrapers.run_scrapling import run_scrapling
-from ride_locally.worker.utils.scr_target_utils import add_new_targets, update_scr_target
+from ride_locally.worker.utils.scr_target_utils import (
+    update_scr_target,
+)
 
 log = getLogger(__name__)
 log.addHandler(
@@ -68,7 +71,7 @@ async def _insert_run(target: ScrTarget) -> int:
 
 
 async def _mark_run_success(
-    run_id: int, o_filepath: str | None, should_process: bool, run_meta: dict | None
+    run_id: int, o_filepath: str | None, should_process: bool, run_meta: dict[str, Any] | None
 ) -> None:
     async with session() as s:
         _ = await s.execute(
@@ -87,7 +90,7 @@ async def _mark_run_success(
 
 async def _mark_run_error(run_id: int, message: str | None) -> None:
     async with session() as s:
-        await s.execute(
+        _ = await s.execute(
             update(ScrRunTable)
             .where(ScrRunTable.id == run_id)
             .values(
@@ -113,27 +116,30 @@ async def run_scrape(target: ScrTarget) -> bool:
         match target.config.scraper:
             case FirecrawlConfig() as scraper:
                 result = await run_firecrawl(target.url, scraper)
+
             case ScraplingSimpleConfig() | ScraplingScriptConfig() as scraper:
                 result = await run_scrapling(target.url, scraper)
+
             case _:
                 raise ValueError("No scrape method provided")
 
         o_filepath: str | None = None
-        run_meta: dict | None = None
+        run_meta: dict[str, Any] | None = None
 
         if isinstance(result, FileResult):
             if result:
                 o_filepath = save_result(result, config.SCRAPER_OUTPUT_DIR)
+
         elif isinstance(result, ScrScriptResult):
             if result.self_update:
-                await update_scr_target(target, result.self_update)
-            if result.new_targets:
-                await add_new_targets(result.new_targets, duplicate_comp_func=result.duplicate_comp_func or None)
+                _ = await update_scr_target(target, result.self_update)
+
             if result.run_file_result:
-                o_filepath = save_result(result.run_file_result, config.SCRAPER_OUTPUT_DIR)
-            run_meta = result.run_meta # only ScrScriptResult has run_meta attached
-        elif result is None:
-            pass  # None results do not qualify for processing
+                o_filepath = save_result(
+                    result.run_file_result, config.SCRAPER_OUTPUT_DIR
+                )
+
+            run_meta = result.run_meta
 
         """
         Mark scraper run row with `should_process` flag depending on Scraper output.
@@ -152,7 +158,7 @@ async def run_scrape(target: ScrTarget) -> bool:
                 except Exception:
                     # if the diff itself fails (unreadable prev file etc.) -> should_process = True
                     log.exception(
-                        f"diff failed for run {run_id}, defaulting to process"
+                        f"diff failed for run {run_id}, defaulting to should_process = True"
                     )
                     should_process = True
 
