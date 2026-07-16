@@ -35,7 +35,7 @@ log = getLogger(__name__)
 RegionData: TypeAlias = dict[bytes, TimetableRegions | None]
 
 
-async def _get_region_descriptions(data: bytes, cfg):
+async def _get_region_descriptions(data: bytes, model, system_prompt):
     """Extract region descriptions from a timetable image using LLM.
 
     Sends the image to an LLM with structured output to identify and describe
@@ -52,8 +52,6 @@ async def _get_region_descriptions(data: bytes, cfg):
         ValueError: If required config values are missing
     """
     # outputs the region descriptions of the image in a structured json using structured response
-    model = cfg.get("llm_model")
-    system_prompt = cfg.get("system_prompt")
 
     if not model or not system_prompt:
         raise ValueError("Script needs 'llm_model' and 'system_prompt' configured")
@@ -234,7 +232,7 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
 
     Args:
         input: FileResult containing a single FileData object (PDF or JPEG)
-        **kwargs: keyword arguments including 'script_config' for LLM settings
+        **kwargs: keyword arguments including LLM settings
 
     Returns:
         FileResult with list of FileData objects, one per time_grid direction,
@@ -256,17 +254,19 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
         case _:
             raise ValueError(f"Filetype '{data_mime}' is not supported")
 
-    script_config = kwargs.get("script_config")
-    if not script_config:
-        raise ValueError("Script needs a script config")
+    llm_model = kwargs.get("llm_model")
+    system_prompt = kwargs.get("system_prompt")
+    
+    if not llm_model or system_prompt:
+        raise ValueError("Script needs llm_model and system_prompt in kwargs")
 
     # split image into logical parts
     region_data: RegionData = {}  # mapping: image bytes to regions extracted from them
     if isinstance(data, list):
         for page in data:
-            region_data[page] = await _get_region_descriptions(page, script_config)
+            region_data[page] = await _get_region_descriptions(page, llm_model, system_prompt)
     else:
-        region_data[data] = await _get_region_descriptions(data, script_config)
+        region_data[data] = await _get_region_descriptions(data, llm_model, system_prompt)
 
     # assemble a list of FileData objects.
     # Each object is self sufficient piece of timetable data eg. a collection of:

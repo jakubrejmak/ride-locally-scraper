@@ -1,9 +1,8 @@
-from collections.abc import Awaitable
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import Annotated
 
 from ride_locally.db.schema import ScrapeStatus
@@ -43,6 +42,14 @@ class ScrTarget(NewScrTarget):
     id: int
 
 
+@dataclass
+class SearchScrTarget:
+    name: str | None
+    url: str | None
+    is_active: bool | None
+    carrier_id: int | None
+
+
 class ScrRun(BaseModel):
     # mirrors ScrRunTable exactly. field names match column names so
     # model_validate(row) hydrates directly from the claim UPDATE ... RETURNING.
@@ -61,16 +68,16 @@ class ScrRun(BaseModel):
     created_at: datetime
 
 
-class GetTargetsResponse(BaseModel):
-    items: list[ScrTarget]
-    total: int
-    page: int
-    per_page: int
-
-
 class ScrScriptResult(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     self_update: NewScrTarget | None
     run_file_result: FileResult | None
     run_meta: dict[str, Any] | None = None
+
+
+class GetTargetsResponse(BaseModel):
+    items: list[ScrTarget]
+    total: int
+    page: int
+    per_page: int

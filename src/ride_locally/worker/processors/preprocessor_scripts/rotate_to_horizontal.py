@@ -11,10 +11,7 @@ from ride_locally.models.preprocessors import RotationNeededToH
 log = getLogger(__name__)
 
 
-async def _get_description(data: bytes, cfg):
-    model = cfg.get("llm_model")
-    system_prompt = cfg.get("system_prompt")
-
+async def _get_description(data: bytes, model, system_prompt):
     image_url = utils._get_img_data_url(data, "image/jpeg")
     payload = {
         "model": model,
@@ -53,9 +50,11 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
     # 3. Finally rotate the image again so the text is horizontal
     ###
 
-    script_config = kwargs.get("script_config")
-    if not script_config:
-        raise ValueError("Script needs a script config")
+    llm_model = kwargs.get("llm_model")
+    system_prompt = kwargs.get("system_prompt")
+
+    if not llm_model or system_prompt:
+        raise ValueError("Script needs llm_model and system_prompt in kwargs")
 
     # 1. Deskew
     deskewed = []
@@ -65,7 +64,7 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
     # 2. LLM call
     with_description: dict[bytes, RotationNeededToH] = {}
     for img in deskewed:
-        desc = await _get_description(img, script_config)
+        desc = await _get_description(img, llm_model, system_prompt)
         if not desc:
             log.error("Failed to get image description")
             return None

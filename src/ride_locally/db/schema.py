@@ -45,6 +45,7 @@ class ScrTargetTable(Base):
     config: Mapped[dict] = mapped_column(JSONB, nullable=False)
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    meta: Mapped[dict] = mapped_column(JSONB, nullable=True)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # next wall-clock instant this target is eligible to run.
     # computed from schedule_cron on insert and on release. set to now() for "run now".

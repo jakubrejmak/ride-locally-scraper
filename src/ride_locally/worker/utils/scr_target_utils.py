@@ -1,4 +1,4 @@
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Iterable
 from datetime import datetime, timezone
 from logging import getLogger
 from typing import Callable
@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ride_locally.db.schema import ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.models.targets import NewScrTarget, ScrTarget
+from ride_locally.models.targets import NewScrTarget, ScrTarget, SearchScrTarget
 from ride_locally.worker.utils.shared import diff_model_against
 
 log = getLogger(__name__)
@@ -84,7 +84,7 @@ async def _get_duplicate_targets_url(
 
 
 async def add_new_targets(
-    new_targets: list[NewScrTarget],
+    new_targets: Iterable[NewScrTarget],
     *,
     warn_on_duplicate: bool = False,
     discard_duplicates: bool = False,
@@ -107,7 +107,6 @@ async def add_new_targets(
 
     added: list[NewScrTarget] = []
     failed: list[NewScrTarget] = []
-    now = datetime.now(timezone.utc)
 
     for t in new_targets:
         try:

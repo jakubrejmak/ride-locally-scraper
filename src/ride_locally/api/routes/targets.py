@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, status
 
 from ride_locally.api.deps.get_session import DBSession
 from ride_locally.api.deps.get_user import user_id_dep
+from ride_locally.models.targets import GetTargetsResponse
 from ride_locally.api.services.targets import (
     create_target,
     list_targets,
@@ -11,7 +12,6 @@ from ride_locally.api.services.targets import (
     request_run_now,
 )
 from ride_locally.models.targets import (
-    GetTargetsResponse,
     NewScrTarget,
     ScrTarget,
 )

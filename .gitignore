@@ -10,6 +10,6 @@ build
 *.egg-info
 *.lock
 
-scrapling_scripts
-processor_prompts
-preprocessor_prompts
+# scrapling_scripts
+# processor_prompts
+# preprocessor_prompts

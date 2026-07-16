@@ -9,17 +9,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml uv.lock ./
-COPY src src
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra api
+    uv sync --frozen --no-dev --extra api --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH"
 
 RUN python -m playwright install --with-deps chromium
+
+COPY src src
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --extra api
 
 COPY alembic alembic
 COPY alembic.ini .
 COPY .env.docker .env.docker
 
 ENV PYTHONUNBUFFERED=1
+
+
