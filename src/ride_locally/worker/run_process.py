@@ -15,7 +15,7 @@ from ride_locally.models.files import FileResult
 from ride_locally.models.processors import LLMProcessorConfig
 from ride_locally.models.targets import ScrRun
 from ride_locally.worker.files import read_result, save_result
-from ride_locally.worker.processors.preprocess import preprocess_file
+from ride_locally.worker.preprocessor.preprocess import preprocess_file
 from ride_locally.worker.processors.process_llm import llm_process_files
 from ride_locally.worker.utils.shared import get_target_config
 
