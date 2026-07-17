@@ -26,6 +26,7 @@ from ride_locally.models.targets import (
 from ride_locally.worker.files import mime_from_bytes, read_result
 from ride_locally.worker.scrapers.exceptions import ScraperProcessException
 from ride_locally.worker.utils.scr_target_utils import add_new_targets
+from ride_locally.worker.utils.shared import get_prompt_by_filename
 
 HEADER_MARKERS = (
     "Nazwa Przewoźnika / Operatora",
@@ -47,6 +48,14 @@ TIMETABLE_TARGET_CONFIG = ScrTargetConfig(
                     {
                         "llm_model": "gemini...",
                         "system_prompt": "rotate this pic mate",
+                        "llm_config": LLMProcessorConfig(
+                            config=OpenRouterProviderConfig(
+                                system_prompt=get_prompt_by_filename("rotate_to_horizontal"),
+                                user_prompts=[],
+                                api_params={},
+                                model="gemini-3-flash-preview",
+                            )
+                        ),
                     }
                 ],
             ),
@@ -56,6 +65,14 @@ TIMETABLE_TARGET_CONFIG = ScrTargetConfig(
                     {
                         "llm_model": "better model",
                         "system_prompt": "describe image parts",
+                        "llm_config": LLMProcessorConfig(
+                            config=OpenRouterProviderConfig(
+                                system_prompt=get_prompt_by_filename("timetable_region_detection"),
+                                user_prompts=[],
+                                api_params={},
+                                model="gemini-3-flash-preview",
+                            )
+                        ),
                     }
                 ],
             ),
@@ -63,7 +80,7 @@ TIMETABLE_TARGET_CONFIG = ScrTargetConfig(
     ),
     processor=LLMProcessorConfig(
         config=OpenRouterProviderConfig(
-            system_prompt="...",
+            system_prompt=get_prompt_by_filename("transcribe_tables"),
             user_prompts=[],
             api_params={},
             model="gemini-3-flash-preview",

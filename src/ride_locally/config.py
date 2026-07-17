@@ -42,7 +42,9 @@ class Config(BaseSettings):
     SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
     PROCESSOR_OUTPUT_DIR: str = "output_files/processor"
 
-    SCRAPER_SCRIPTS_DIR: str = "src/ride_locally/worker/scrapers"
+    SCRAPER_SCRIPTS_DIR: str = "src/ride_locally/worker/scrapers/scraper_scripts"
+    PREPROCESSOR_SCRIPT_DIR: str = "src/ride_locally/worker/preprocessor/preprocessor_scripts"
+    PROMPTS_DIR: str = "src/ride_locally/worker/system_prompts"
 
     API_ADMIN_EMAIL: str = "admin@email.com"
     API_ADMIN_USERNAME: str = "admin"

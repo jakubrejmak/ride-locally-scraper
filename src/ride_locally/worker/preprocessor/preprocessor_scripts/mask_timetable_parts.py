@@ -223,6 +223,7 @@ def _compose_timetable_for_direction(
     return output_data
 
 
+# TODO: rewrite to accept "llm_config": LLMProcessorConfig() in kwargs
 async def run(input: FileResult, **kwargs) -> FileResult | None:
     """Process a timetable document and extract route directions as separate images.
 

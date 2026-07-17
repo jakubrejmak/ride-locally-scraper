@@ -6,7 +6,7 @@ from ride_locally.config import config
 from ride_locally.worker.llm.openrouter_utils import OpenRouterUtils as utils
 from ride_locally.worker.visual.deskew import deskew_image, rotate_image
 from ride_locally.models.files import FileData, FileResult
-from ride_locally.models.preprocessors import RotationNeededToH
+from ride_locally.models.preprocessors import TextOrientationCorrection
 
 log = getLogger(__name__)
 
@@ -20,14 +20,14 @@ async def _get_description(data: bytes, model, system_prompt):
             utils.add_message("user", image_url, "image_url"),
         ),
         "reasoning": {"effort": "none"},
-        "response_format": utils.to_response_format_schema(RotationNeededToH),
+        "response_format": utils.to_response_format_schema(TextOrientationCorrection),
     }
     async with openrouter.OpenRouter(api_key=config.OPENROUTER_API_KEY) as client:
         response = await client.chat.send_async(**payload)
     content = response.choices[0].message.content
 
     try:
-        description = RotationNeededToH.model_validate_json(content)
+        description = TextOrientationCorrection.model_validate_json(content)
     except Exception:
         return None
 
@@ -38,6 +38,7 @@ def _jpeg_to_filedata(jpeg_bytes: bytes) -> FileData:
     return FileData(mime="image/jpeg", ext="jpeg", bytes=jpeg_bytes, description=None)
 
 
+# TODO: rewrite to accept "llm_config": LLMProcessorConfig() in kwargs
 async def run(input: FileResult, **kwargs) -> FileResult | None:
     """WARNING: before deskew we need to determine text direction
     the table's straight edges, deskew can produce a table that is rotated
@@ -62,7 +63,7 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
         deskewed.append(deskew_image(fd.bytes))
 
     # 2. LLM call
-    with_description: dict[bytes, RotationNeededToH] = {}
+    with_description: dict[bytes, TextOrientationCorrection] = {}
     for img in deskewed:
         desc = await _get_description(img, llm_model, system_prompt)
         if not desc:
@@ -74,9 +75,9 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
     results: FileResult = FileResult(data=[])
     for img, desc in with_description.items():
         match desc.to_rotate:
-            case "correct":
+            case "0_degrees":
                 pass
-            case "rotate_90" | "rotate_180" | "rotate_270":
+            case "rotate_90_cw" | "rotate_180" | "rotate_270_cw":
                 deg = desc.to_rotate.split("_")[1]
                 try:
                     img = rotate_image(img, float(deg))
@@ -85,7 +86,7 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
                     return None
             case "other":
                 log.error(
-                    f"Unknown rotation needed. The RotationNeededToH is not supposed to be {desc.to_rotate}. Check that the image after initial deskew is straight."
+                    f"Unknown rotation needed. The TextOrientationCorrection is not supposed to be {desc.to_rotate}. Check that the image after initial deskew is straight."
                 )
                 return None
         results.data.append(_jpeg_to_filedata(img))

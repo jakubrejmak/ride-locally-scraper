@@ -30,3 +30,7 @@ def diff_model_against(
     if columns is not None:
         dumped = {k: v for k, v in dumped.items() if k in columns}
     return {k: v for k, v in dumped.items() if v != current.get(k)}
+
+
+def get_prompt_by_filename(filename: str) -> str:
+    return "h"

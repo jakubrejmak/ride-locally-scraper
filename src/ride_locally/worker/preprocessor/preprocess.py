@@ -5,8 +5,7 @@ from typing import Callable
 
 from ride_locally.models.files import FileResult
 from ride_locally.models.preprocessors import PreprocessorConfig, PreprocessorTool
-
-PREPROCESSOR_ROOT = Path(__file__).resolve().parent / "preprocessor_scripts"
+from ride_locally.config import config
 
 
 def _parse_ref(ref: str) -> tuple[Path, str]:
@@ -22,7 +21,7 @@ def _resolve_script_path(path_str: str) -> Path:
     if path.is_file():
         return path
 
-    by_name = PREPROCESSOR_ROOT / path.name
+    by_name = Path(config.PREPROCESSOR_SCRIPT_DIR) / path.name
     if by_name.is_file():
         return by_name
 
