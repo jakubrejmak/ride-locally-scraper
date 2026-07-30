@@ -1,8 +1,10 @@
 from logging import getLogger
+from typing import Any
 
 import openrouter
 
 from ride_locally.config import config
+from ride_locally.models.processors import LLMProcessorConfig
 from ride_locally.worker.llm.openrouter_utils import OpenRouterUtils as utils
 from ride_locally.worker.visual.deskew import deskew_image, rotate_image
 from ride_locally.models.files import FileData, FileResult
@@ -11,7 +13,7 @@ from ride_locally.models.preprocessors import TextOrientationCorrection
 log = getLogger(__name__)
 
 
-async def _get_description(data: bytes, model, system_prompt):
+async def _get_description(data: bytes, model: str, system_prompt: str):
     image_url = utils._get_img_data_url(data, "image/jpeg")
     payload = {
         "model": model,
@@ -38,8 +40,7 @@ def _jpeg_to_filedata(jpeg_bytes: bytes) -> FileData:
     return FileData(mime="image/jpeg", ext="jpeg", bytes=jpeg_bytes, description=None)
 
 
-# TODO: rewrite to accept "llm_config": LLMProcessorConfig() in kwargs
-async def run(input: FileResult, **kwargs) -> FileResult | None:
+async def run(input: FileResult, **kwargs: Any) -> FileResult | None:
     """WARNING: before deskew we need to determine text direction
     the table's straight edges, deskew can produce a table that is rotated
     either 0deg or 90deg. need some text recognition first to hint a proper
@@ -51,21 +52,19 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
     # 3. Finally rotate the image again so the text is horizontal
     ###
 
-    llm_model = kwargs.get("llm_model")
-    system_prompt = kwargs.get("system_prompt")
-
-    if not llm_model or system_prompt:
-        raise ValueError("Script needs llm_model and system_prompt in kwargs")
+    llm_config: LLMProcessorConfig | None = kwargs.get("llm_config")
+    if not isinstance(llm_config, LLMProcessorConfig):
+        raise ValueError("Script needs LLMProcessorConfig object")
 
     # 1. Deskew
-    deskewed = []
+    deskewed: list[bytes] = []
     for fd in input.data:
         deskewed.append(deskew_image(fd.bytes))
 
     # 2. LLM call
     with_description: dict[bytes, TextOrientationCorrection] = {}
     for img in deskewed:
-        desc = await _get_description(img, llm_model, system_prompt)
+        desc = await _get_description(img, llm_config.config.model, llm_config.config.system_prompt or "")
         if not desc:
             log.error("Failed to get image description")
             return None

@@ -37,14 +37,18 @@ class Config(BaseSettings):
 
     LOG_DIR: str = "logs"
     LOG_LVL: str = "INFO"
+
     DEBUG_OUTPUTS: bool = True
     DEBUG_OUTPUT_DIR: str = "output_files/debug"
+
     SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
     PROCESSOR_OUTPUT_DIR: str = "output_files/processor"
 
     SCRAPER_SCRIPTS_DIR: str = "src/ride_locally/worker/scrapers/scraper_scripts"
     PREPROCESSOR_SCRIPT_DIR: str = "src/ride_locally/worker/preprocessor/preprocessor_scripts"
-    PROMPTS_DIR: str = "src/ride_locally/worker/system_prompts"
+
+    PREPROCESSOR_PROMPTS_DIR: str = "src/ride_locally/worker/system_prompts/preprocessor_prompts"
+    PROCESSOR_PROMPTS_DIR: str = "src/ride_locally/worker/system_prompts/processor_prompts"
 
     API_ADMIN_EMAIL: str = "admin@email.com"
     API_ADMIN_USERNAME: str = "admin"

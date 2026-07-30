@@ -1,4 +1,3 @@
-PROMPT = """
 # Timetable Region Detection
 
 Draw tight bounding boxes around regions in this transport timetable image.
@@ -19,4 +18,3 @@ Coordinates use a 0–1000 scale (0 = top/left, 1000 = bottom/right).
 - `text_sample`: short exact text visible inside the box
 - `description`: empty string unless type is `other`
 - No reasoning. Just output the regions.
-"""

@@ -13,13 +13,14 @@
 ###
 
 from logging import getLogger
-from typing import TypeAlias, get_args
+from typing import Any, TypeAlias, get_args
 
 import openrouter
 
 from ride_locally.config import config
 from ride_locally.models.files import FileData, FileResult
 from ride_locally.models.preprocessors import Region, RegionType, TimetableRegions
+from ride_locally.models.processors import LLMProcessorConfig
 from ride_locally.worker.llm.openrouter_utils import OpenRouterUtils as utils
 from ride_locally.worker.visual.image_utils import (
     crop_image_to_square,
@@ -35,7 +36,7 @@ log = getLogger(__name__)
 RegionData: TypeAlias = dict[bytes, TimetableRegions | None]
 
 
-async def _get_region_descriptions(data: bytes, model, system_prompt):
+async def _get_region_descriptions(data: bytes, model: str, system_prompt: str):
     """Extract region descriptions from a timetable image using LLM.
 
     Sends the image to an LLM with structured output to identify and describe
@@ -223,8 +224,7 @@ def _compose_timetable_for_direction(
     return output_data
 
 
-# TODO: rewrite to accept "llm_config": LLMProcessorConfig() in kwargs
-async def run(input: FileResult, **kwargs) -> FileResult | None:
+async def run(input: FileResult, **kwargs: Any) -> FileResult | None:
     """Process a timetable document and extract route directions as separate images.
 
     Accepts a PDF or JPEG timetable, uses an LLM to identify region bounding boxes
@@ -255,19 +255,21 @@ async def run(input: FileResult, **kwargs) -> FileResult | None:
         case _:
             raise ValueError(f"Filetype '{data_mime}' is not supported")
 
-    llm_model = kwargs.get("llm_model")
-    system_prompt = kwargs.get("system_prompt")
-    
-    if not llm_model or system_prompt:
-        raise ValueError("Script needs llm_model and system_prompt in kwargs")
+    llm_config: LLMProcessorConfig | None = kwargs.get("llm_config")
+    if not isinstance(llm_config, LLMProcessorConfig):
+        raise ValueError("Script needs LLMProcessorConfig object")
 
     # split image into logical parts
     region_data: RegionData = {}  # mapping: image bytes to regions extracted from them
     if isinstance(data, list):
         for page in data:
-            region_data[page] = await _get_region_descriptions(page, llm_model, system_prompt)
+            region_data[page] = await _get_region_descriptions(
+                page, llm_config.config.model, llm_config.config.system_prompt or ""
+            )
     else:
-        region_data[data] = await _get_region_descriptions(data, llm_model, system_prompt)
+        region_data[data] = await _get_region_descriptions(
+            data, llm_config.config.model, llm_config.config.system_prompt or ""
+        )
 
     # assemble a list of FileData objects.
     # Each object is self sufficient piece of timetable data eg. a collection of:

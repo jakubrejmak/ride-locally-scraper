@@ -46,11 +46,11 @@ TIMETABLE_TARGET_CONFIG = ScrTargetConfig(
                 ref="rotate_to_horizontal",
                 params=[
                     {
-                        "llm_model": "gemini...",
-                        "system_prompt": "rotate this pic mate",
                         "llm_config": LLMProcessorConfig(
                             config=OpenRouterProviderConfig(
-                                system_prompt=get_prompt_by_filename("rotate_to_horizontal"),
+                                system_prompt=get_prompt_by_filename(
+                                    "rotate_to_horizontal"
+                                ),
                                 user_prompts=[],
                                 api_params={},
                                 model="gemini-3-flash-preview",
@@ -63,11 +63,11 @@ TIMETABLE_TARGET_CONFIG = ScrTargetConfig(
                 ref="mask_timetable_parts",
                 params=[
                     {
-                        "llm_model": "better model",
-                        "system_prompt": "describe image parts",
                         "llm_config": LLMProcessorConfig(
                             config=OpenRouterProviderConfig(
-                                system_prompt=get_prompt_by_filename("timetable_region_detection"),
+                                system_prompt=get_prompt_by_filename(
+                                    "timetable_region_detection"
+                                ),
                                 user_prompts=[],
                                 api_params={},
                                 model="gemini-3-flash-preview",
