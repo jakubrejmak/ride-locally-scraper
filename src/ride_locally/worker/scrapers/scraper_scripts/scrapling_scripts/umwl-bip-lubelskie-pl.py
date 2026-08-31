@@ -25,7 +25,7 @@ from ride_locally.models.targets import (
 )
 from ride_locally.worker.files import mime_from_bytes, read_result
 from ride_locally.worker.scrapers.exceptions import ScraperProcessException
-from ride_locally.worker.utils.scr_target_utils import add_new_targets
+from ride_locally.worker.utils.scr_target_utils import add_new_targets, get_carrier_id_by
 from ride_locally.worker.utils.shared import get_prompt_by_filename
 
 HEADER_MARKERS = (
@@ -35,6 +35,7 @@ HEADER_MARKERS = (
     "przez miejscowości",
     "Rozkład Jazdy",
 )
+CARRIER_NAME_MARKER = HEADER_MARKERS[0]
 NAME_MARKERS = HEADER_MARKERS[:-2]
 URL_MARKER = HEADER_MARKERS[-1]
 
@@ -49,7 +50,7 @@ TIMETABLE_TARGET_CONFIG = ScrTargetConfig(
                         "llm_config": LLMProcessorConfig(
                             config=OpenRouterProviderConfig(
                                 system_prompt=get_prompt_by_filename(
-                                    "rotate_to_horizontal"
+                                    "preprocessor", "rotate_to_horizontal.txt"
                                 ),
                                 user_prompts=[],
                                 api_params={},
@@ -66,7 +67,7 @@ TIMETABLE_TARGET_CONFIG = ScrTargetConfig(
                         "llm_config": LLMProcessorConfig(
                             config=OpenRouterProviderConfig(
                                 system_prompt=get_prompt_by_filename(
-                                    "timetable_region_detection"
+                                    "preprocessor", "timetable_region_detection.txt"
                                 ),
                                 user_prompts=[],
                                 api_params={},
@@ -80,7 +81,7 @@ TIMETABLE_TARGET_CONFIG = ScrTargetConfig(
     ),
     processor=LLMProcessorConfig(
         config=OpenRouterProviderConfig(
-            system_prompt=get_prompt_by_filename("transcribe_tables"),
+            system_prompt=get_prompt_by_filename("processor", "transcribe_tables.txt"),
             user_prompts=[],
             api_params={},
             model="gemini-3-flash-preview",
@@ -355,6 +356,7 @@ async def run(url: str) -> ScrScriptResult | None:
 
         # build an array of new scrape targets (urls in xls) discovered by this target
         discovered_target_urls.add(timetable_url)
+        carrier_id = await get_carrier_id_by(timetable_url, values[column_map[CARRIER_NAME_MARKER]])
         discovered_targets.add(
             NewScrTarget(
                 name=" - ".join(name_parts)[:255],
@@ -362,7 +364,7 @@ async def run(url: str) -> ScrScriptResult | None:
                 config=TIMETABLE_TARGET_CONFIG,
                 is_active=False,
                 schedule_cron=None,
-                carrier_id=None,
+                carrier_id=carrier_id,
                 next_due_at=datetime.now(timezone.utc),
             )
         )

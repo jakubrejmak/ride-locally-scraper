@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from typing import TypeAlias
+from typing import TypeAlias, final
 
 from sqlalchemy import (
     Boolean,
@@ -31,12 +31,14 @@ ScrapeStatus: TypeAlias = Status
 ProcessStatus: TypeAlias = Status
 
 
+@final
 class ScrTargetTable(Base):
     """
     Target to run scraper against.
-    The scraper will run against the `url` value on periodic interval defined in `schedule_cron` 
+    The scraper will run against the `url` value on periodic interval defined in `schedule_cron`
     and produce output in `scr_runs` (scraper runs) table.
     """
+
     __tablename__ = "scr_targets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -60,11 +62,15 @@ class ScrTargetTable(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
 
 # runs appear every time a scrape is performed and are later claimed by processor
+@final
 class ScrRunTable(Base):
     """
     When scraper puts row with `should_process = True` in this table, it becomes eligible for processing.
@@ -72,6 +78,7 @@ class ScrRunTable(Base):
     Runs with `should_process = False` represent scraper runs that resulted in the same file as the
     previus run for a target, scraper runs that performed actions with custom scripts etc.
     """
+
     __tablename__ = "scr_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -99,6 +106,27 @@ class ScrRunTable(Base):
     )
 
 
+# TABLE SHARED WITH THE NEXTJS APP
+# export const carriersTable = pgTable("carriers", {
+#   id: integer().primaryKey().generatedAlwaysAsIdentity(),
+#   name: varchar().notNull(),
+#   homepage: varchar(),
+#   contact_phone: varchar({ length: 20 }),
+#   contact_email: varchar({ length: 255 }),
+#   timezone: varchar({ length: 64 }).notNull(),
+#   country: varchar({ length: 2 }).notNull(),
+# });
+@final
+class CarriersTable(Base):
+    __tablename__ = "carriers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    homepage: Mapped[str] = mapped_column(String)
+    country: Mapped[str] = mapped_column(String(2), nullable=False)
+
+
+@final
 class ScrProcessedTable(Base):
     __tablename__ = "scr_processed"
 
@@ -124,6 +152,7 @@ class ScrProcessedTable(Base):
     )
 
 
+@final
 class ApiUserTable(Base):
     __tablename__ = "scr_api_users"
 

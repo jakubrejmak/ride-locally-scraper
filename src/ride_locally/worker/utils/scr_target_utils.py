@@ -1,23 +1,19 @@
-from collections.abc import Awaitable, Iterable
-from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable, Iterable
 from logging import getLogger
-from typing import Callable
 
 from sqlalchemy import func, insert, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.operators import like_op
 
-from ride_locally.db.schema import ScrTargetTable
+from ride_locally.db.schema import CarriersTable, ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.models.targets import NewScrTarget, ScrTarget, SearchScrTarget
+from ride_locally.models.targets import NewScrTarget, ScrTarget
 from ride_locally.worker.utils.shared import diff_model_against
 
 log = getLogger(__name__)
 
 
-
-async def update_scr_target(
-    target: ScrTarget, updated: NewScrTarget
-) -> dict | None:
+async def update_scr_target(target: ScrTarget, updated: NewScrTarget) -> dict | None:
     current = target.model_dump(exclude_unset=True)
     diff = diff_model_against(updated, current)
     if not diff:
@@ -25,9 +21,7 @@ async def update_scr_target(
 
     async with session() as s:
         await s.execute(
-            update(ScrTargetTable)
-            .where(ScrTargetTable.id == target.id)
-            .values(**diff)
+            update(ScrTargetTable).where(ScrTargetTable.id == target.id).values(**diff)
         )
         await s.commit()
 
@@ -75,10 +69,7 @@ async def _get_duplicate_targets_url(
     session: AsyncSession, target: NewScrTarget
 ) -> list[ScrTargetTable]:
 
-    q = (
-        select(ScrTargetTable)
-        .where(ScrTargetTable.url == target.url)
-    )
+    q = select(ScrTargetTable).where(ScrTargetTable.url == target.url)
     r = await session.execute(q)
     return list(r.scalars().all())
 
@@ -138,3 +129,28 @@ async def add_new_targets(
             failed.append(t)
 
     return added, failed
+
+
+async def get_carrier_id_by(*, homepage: str | None, name: str | None):
+    async with session() as s:
+        stmt = select(CarriersTable.id)
+
+        filters = [
+            (CarriersTable.homepage, homepage),
+            (CarriersTable.name, name),
+        ]
+
+        for column, value in filters:
+            if not value:
+                continue
+            stmt = stmt.where(like_op(column, value))
+
+        result = await s.execute(stmt)
+        ids = result.scalars().all()
+
+        if len(ids) > 1:
+            raise Exception(
+                f"Multiple carrier ids matched for filters {[f[1] for f in filters if f[1] is not None]}"
+            )
+
+    return ids
