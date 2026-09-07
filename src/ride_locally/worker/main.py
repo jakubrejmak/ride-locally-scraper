@@ -22,6 +22,7 @@ LOG_LVL_MAP = {
     "WARNING": logging.WARN,
     "ERROR": logging.ERROR,
 }
+
 logging.basicConfig(
     level=LOG_LVL_MAP[config.LOG_LVL],
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
