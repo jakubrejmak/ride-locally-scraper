@@ -131,7 +131,7 @@ async def add_new_targets(
     return added, failed
 
 
-async def get_carrier_id_by(*, homepage: str | None, name: str | None):
+async def get_carrier_id_by(*, homepage: str | None = None, name: str | None = None):
     async with session() as s:
         stmt = select(CarriersTable.id)
 
@@ -153,4 +153,4 @@ async def get_carrier_id_by(*, homepage: str | None, name: str | None):
                 f"Multiple carrier ids matched for filters {[f[1] for f in filters if f[1] is not None]}"
             )
 
-    return ids
+    return ids[0]
