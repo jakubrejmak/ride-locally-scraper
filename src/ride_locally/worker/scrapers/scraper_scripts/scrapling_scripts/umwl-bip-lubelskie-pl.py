@@ -143,7 +143,7 @@ def _normalize(string) -> str:
 
 
 def _cell_as_str(sheet, row: int, col: int) -> str:
-    """xlrd returns float for numbers, bool for booleans, etc. — normalize to str."""
+    """xlrd returns float for numbers, bool for booleans, etc. - normalize to str."""
     cell = sheet.cell(row, col)
     if cell.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
         return ""
@@ -356,7 +356,7 @@ async def run(url: str) -> ScrScriptResult | None:
 
         # build an array of new scrape targets (urls in xls) discovered by this target
         discovered_target_urls.add(timetable_url)
-        carrier_id = await get_carrier_id_by(timetable_url, values[column_map[CARRIER_NAME_MARKER]])
+        carrier_id = await get_carrier_id_by(name=values[column_map[CARRIER_NAME_MARKER]])
         discovered_targets.add(
             NewScrTarget(
                 name=" - ".join(name_parts)[:255],
