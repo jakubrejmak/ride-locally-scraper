@@ -71,9 +71,9 @@ class NewScrTarget(BaseModel):
     schedule_cron: str | None
     carrier_id: int | None
     priority: int = 0
-    # None = one-shot, run immediately, never reschedule.
-    # workers/API set this to now() for "run now", or croniter(cron).get_next(now)
-    # on release. defaults None so existing API callers keep working.
+    # None = not scheduled, never claimed. now() = run now. workers set the next
+    # cron slot on release, or None once a cron-less target has run successfully.
+    # create_target turns None into now(); add_new_targets inserts it as-is.
     next_due_at: datetime | None = None
 
 

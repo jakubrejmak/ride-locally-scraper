@@ -33,8 +33,8 @@ async def claim_scrape_target(worker_id: str) -> ScrTarget | None:
                     SELECT id FROM scr_targets
                     WHERE is_active
                       AND claimed_at IS NULL
-                      AND (next_due_at IS NULL OR next_due_at <= now())
-                    ORDER BY priority DESC, next_due_at ASC NULLS FIRST
+                      AND next_due_at <= now()
+                    ORDER BY priority DESC, next_due_at ASC
                     FOR UPDATE SKIP LOCKED
                     LIMIT 1
                 ) picked
