@@ -13,3 +13,4 @@ build
 # scrapling_scripts
 # processor_prompts
 # preprocessor_prompts
+/logs/scraper.log
