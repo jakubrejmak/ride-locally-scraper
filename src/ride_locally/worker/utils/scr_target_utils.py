@@ -28,6 +28,25 @@ async def update_scr_target(target: ScrTarget, updated: NewScrTarget) -> dict | 
     return diff
 
 
+async def disable_targets_by_url(urls: Iterable[str], *, reason: str) -> int:
+    async with session() as s:
+        stmt = (
+            update(ScrTargetTable)
+            .where(ScrTargetTable.url.in_(urls))
+            .values(
+                is_active=False,
+                meta={"deactivate_reason": reason},
+            )
+            .returning(ScrTargetTable.id)
+        )
+        res = await s.execute(stmt)
+        await s.commit()
+
+    updated = res.scalars().all()
+
+    return len(updated)
+
+
 async def _get_similar_targets_trgm(
     session: AsyncSession, target: NewScrTarget, similarity_threshold: float
 ) -> list[ScrTargetTable]:

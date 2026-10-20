@@ -2,31 +2,32 @@
 Then adds the timetable links from xlsx as new targets"""
 
 import re
-from collections.abc import Iterable, Generator
+from collections.abc import Generator
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import Any, ClassVar, Sequence, TypedDict
+from typing import ClassVar, Sequence, TypedDict
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import openpyxl
 import xlrd
 from scrapling.engines._browsers._controllers import AsyncDynamicSession
-from sqlalchemy import select, update
 
-from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
-from ride_locally.db.session import session
 from ride_locally.models.files import FileData, FileMeta, FileResult
 from ride_locally.models.targets import (
     NewScrTarget,
-    ScrRun,
     ScrScriptResult,
     ScrTargetConfig,
 )
-from ride_locally.worker.files import mime_from_bytes, read_result
+from ride_locally.worker.files import mime_from_bytes
 from ride_locally.worker.scrapers.exceptions import ScraperProcessException
+from ride_locally.worker.utils.scr_run_utils import (
+    get_file_bytes,
+    get_previous_run_result_by,
+    get_run_meta,
+)
 from ride_locally.worker.utils.scr_target_utils import add_new_targets, \
-    get_carrier_id_by
+    disable_targets_by_url, get_carrier_id_by
 from ride_locally.worker.utils.openpyxl_helpers import OpenpyxlHelper
 from ride_locally.worker.utils.table_search import TableSearch
 from ride_locally.worker.utils.xlrd_helpers import XlrdHelper
@@ -73,27 +74,6 @@ class UMWLSheet:
             yield {field: row[col] for field, col in columns.items()}
 
 
-async def disable_targets_by_url(urls: Iterable[str]) -> int:
-    async with session() as s:
-        stmt = (
-            update(ScrTargetTable)
-            .where(ScrTargetTable.url.in_(urls))
-            .values(
-                is_active=False,
-                meta={
-                    "deactivate_reason": "Stale target: Target url no longer in file."
-                },
-            )
-            .returning(ScrTargetTable.id)
-        )
-        res = await s.execute(stmt)
-        await s.commit()
-
-    updated = res.scalars().all()
-
-    return len(updated)
-
-
 def _same_site_url(base_url: str, href: str | None) -> str | None:
     if not href or not href.strip():
         return None
@@ -119,52 +99,6 @@ def _same_site_url(base_url: str, href: str | None) -> str | None:
         return None
 
     return final
-
-
-def _get_file_bytes(run: ScrRun) -> bytes | None:
-    filepath = run.o_filepath
-
-    if not filepath:
-        return None
-
-    previous = read_result(filepath, FileResult)
-
-    if not previous or not previous.data:
-        return None
-
-    return previous.data[0].bytes
-
-
-def _get_run_meta(run: ScrRun | None, key: str) -> Any | None:
-    if run is None or not run.meta or key not in run.meta:
-        return None
-
-    v = run.meta[key]
-
-    return v
-
-
-async def _get_previous_run_result(scrape_url: str) -> ScrRun | None:
-    async with session() as s:
-        q = select(ScrTargetTable.id).where(ScrTargetTable.url == scrape_url)
-        target_id = (await s.execute(q)).scalar_one_or_none()
-        if target_id is None:
-            return None
-
-        q = (
-            select(ScrRunTable)
-            .where(
-                ScrRunTable.target_id == target_id,
-                ScrRunTable.status == ScrapeStatus.success,
-                ScrRunTable.o_filepath.is_not(None),
-            )
-            .order_by(ScrRunTable.finished_at.desc())
-            .limit(1)
-        )
-
-        run = (await s.execute(q)).scalar_one_or_none()
-
-        return ScrRun.model_validate(run) if run else None
 
 
 def _find_link(page, url: str, css: str, pattern) -> str | None:
@@ -224,9 +158,9 @@ async def run(url: str) -> ScrScriptResult | None:
         ###
 
         current_xls_name = download_href[match.start():] if match else None
-        previous_result = await _get_previous_run_result(url)
+        previous_result = await get_previous_run_result_by(url)
 
-        last_xls_name = _get_run_meta(previous_result, "last_xls_name") or None
+        last_xls_name = get_run_meta(previous_result, "last_xls_name") or None
 
         if (
                 last_xls_name is not None
@@ -246,7 +180,7 @@ async def run(url: str) -> ScrScriptResult | None:
             )
         body = await resp.body()
 
-        if previous_result is not None and _get_file_bytes(
+        if previous_result is not None and get_file_bytes(
                 previous_result) == body:
             return None  # return if the previous run's bytes are the same as the downloaded file's
 
@@ -333,11 +267,13 @@ async def run(url: str) -> ScrScriptResult | None:
     # deactivate all the previously added targets
     # reason being if the target disappears from xls - it's no longer useful
     previous_targets_urls: set[str] = set(  # used later to scrape stale targets
-        _get_run_meta(previous_result, "previously_discovered_urls") or []
+        get_run_meta(previous_result, "previously_discovered_urls") or []
     )
 
     stale_targets_urls = previous_targets_urls - discovered_targets.keys()
-    _ = await disable_targets_by_url(stale_targets_urls)
+    _ = await disable_targets_by_url(
+        stale_targets_urls, reason="Stale target: Target url no longer in file."
+    )
 
     # add the built targets to DB
     _ = await add_new_targets(discovered_targets.values())
