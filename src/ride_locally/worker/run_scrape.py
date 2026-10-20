@@ -19,7 +19,8 @@ from ride_locally.models.scrapers import (
     ScraplingSimpleConfig,
 )
 from ride_locally.models.targets import ScrScriptResult, ScrTarget
-from ride_locally.worker.files import diff_file_results, save_result
+from ride_locally.worker.files import diff_file_results, save_result, \
+    FileOperationException
 from ride_locally.worker.scrapers.run_firecrawl import run_firecrawl
 from ride_locally.worker.scrapers.run_scrapling import run_scrapling
 from ride_locally.worker.utils.scr_target_utils import (
@@ -29,13 +30,15 @@ from ride_locally.worker.utils.scr_target_utils import (
 log = getLogger(__name__)
 log.addHandler(
     RotatingFileHandler(
-        f"{config.LOG_DIR}/scraper.log", mode="a", maxBytes=10_000_000, backupCount=5
+        f"{config.LOG_DIR}/scraper.log", mode="a", maxBytes=10_000_000,
+        backupCount=5
     )
 )
 
 
-async def _get_prev_run_filepath(target_id: int, exclude_run_id: int) -> str | None:
-    # most recent finished run for this target, other than the one we just
+async def _get_prev_run_filepath(target_id: int,
+                                 exclude_run_id: int) -> str | None:
+    # the most recent finished run for this target, other than the one we just
     # created. used to decide should_process = (files differ).
     async with session() as s:
         q = (
@@ -71,7 +74,8 @@ async def _insert_run(target: ScrTarget) -> int:
 
 
 async def _mark_run_success(
-    run_id: int, o_filepath: str | None, should_process: bool, run_meta: dict[str, Any] | None
+        run_id: int, o_filepath: str | None, should_process: bool,
+        run_meta: dict[str, Any] | None
 ) -> None:
     async with session() as s:
         _ = await s.execute(
@@ -107,7 +111,7 @@ async def run_scrape(target: ScrTarget) -> bool:
     """Takes a target snapshot and records its result to scr_runs."""
 
     log.info(
-        f"started scrape for target: {target.name or target.id} at {datetime.now(timezone.utc)}"
+        f"Started scrape for target: {target.name or target.id} at {datetime.now(timezone.utc)}"
     )
 
     run_id = await _insert_run(target)
@@ -153,9 +157,9 @@ async def run_scrape(target: ScrTarget) -> bool:
                 should_process = True
             else:
                 try:
-                    # if previous run exists - diff against current one - if they differ -> should_process = True
+                    # if previous run exists, diff against current one - if they differ -> should_process = True
                     should_process = diff_file_results(o_filepath, prev)
-                except Exception:
+                except FileOperationException:
                     # if the diff itself fails (unreadable prev file etc.) -> should_process = True
                     log.exception(
                         f"diff failed for run {run_id}, defaulting to should_process = True"
@@ -170,11 +174,11 @@ async def run_scrape(target: ScrTarget) -> bool:
         )
 
     except Exception as e:
-        log.error(e)
+        log.exception(e)
         await _mark_run_error(run_id, str(e))
         return False
     except BaseException as e:
-        log.error(e)
+        log.exception(e)
         await _mark_run_error(run_id, str(e))
         raise
 

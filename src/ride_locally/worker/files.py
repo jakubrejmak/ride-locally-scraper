@@ -9,6 +9,10 @@ import magic
 from ride_locally.models.files import FileData, FileResult
 
 
+class FileOperationException(Exception):
+    pass
+
+
 def _split_mime(mimetype: str) -> str:
     return mimetype.split("/")[1]
 
@@ -20,7 +24,7 @@ def mime_from_bytes(data: bytes) -> tuple[str, str]:
 
 def mime_from_file(path: str) -> tuple[str, str]:
     if not os.path.isfile(path):
-        raise ValueError(f"Expected a valid file, got: {path}")
+        raise FileOperationException(f"Expected a valid file, got: {path}")
     full_mime = magic.from_file(path, mime=True)
     return full_mime, _split_mime(full_mime)
 
@@ -101,7 +105,7 @@ def diff_file_results(f1: str, f2: str) -> bool:
     fr2 = read_result(f2)
 
     if not fr1 or not fr2:
-        raise Exception("Could not read result from filepaths")
+        raise FileOperationException("Could not read result from filepaths")
 
     for fd1, fd2 in zip(fr1.data, fr2.data):
         if fd1 != fd2:
