@@ -30,6 +30,8 @@ dependencies = [
     "pillow",
     "scikit-image",
     "pymupdf",
+    "openpyxl>=3.1.5",
+    "unidecode>=1.4.0",
 ]
 
 [project.optional-dependencies]
