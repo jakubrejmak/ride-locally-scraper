@@ -16,17 +16,16 @@ class XlrdHelper:
         return str(cell.value).strip()
 
     @staticmethod
-    def find_row(book: xlrd.Book, values: tuple[str, ...]):
-        for i, sheet in enumerate(book.sheets()):
-            for r in range(sheet.nrows):
-                row_text = " ".join(
-                    XlrdHelper.cell_as_str(sheet, r, c) for c in range(sheet.ncols)
-                )
-                if all(n in row_text for n in values):
-                    return i, r
-
-        return None, None
+    def get_row_value_list(sheet, row_no) -> list[str]:
+        return [XlrdHelper.cell_as_str(sheet, row_no, c) for c in
+                range(sheet.ncols)]
 
     @staticmethod
-    def get_row_value_list(sheet, row_no) -> list[str]:
-        return [XlrdHelper.cell_as_str(sheet, row_no, c) for c in range(sheet.ncols)]
+    def get_rows(sheet) -> list[list[str]]:
+        return [XlrdHelper.get_row_value_list(sheet, r) for r in range(sheet.nrows)]
+
+    @staticmethod
+    def get_hyperlink(sheet, row: int, col: int) -> str | None:
+        """hyperlink_map is only filled when the book is opened with formatting_info=True."""
+        hl = sheet.hyperlink_map.get((row, col))
+        return hl.url_or_path if hl else None
