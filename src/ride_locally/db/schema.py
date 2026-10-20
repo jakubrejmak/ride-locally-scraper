@@ -1,15 +1,22 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import TypeAlias, final
 
+from geoalchemy2 import Geometry, WKBElement
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
+    Identity,
+    Index,
     Integer,
     String,
     Text,
+    Time,
+    UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -51,7 +58,7 @@ class ScrTargetTable(Base):
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # next wall-clock instant this target is eligible to run.
     # computed from schedule_cron on insert and on release. set to now() for "run now".
-    # NULL = one-shot, run immediately, never reschedule.
+    # NULL = not scheduled, never claimed.
     next_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # populated while a worker holds the row. NULL = free to claim.
     # claimed_by is hostname:pid, kept for observability + the reaper.
@@ -106,26 +113,6 @@ class ScrRunTable(Base):
     )
 
 
-# TABLE SHARED WITH THE NEXTJS APP
-# export const carriersTable = pgTable("carriers", {
-#   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-#   name: varchar().notNull(),
-#   homepage: varchar(),
-#   contact_phone: varchar({ length: 20 }),
-#   contact_email: varchar({ length: 255 }),
-#   timezone: varchar({ length: 64 }).notNull(),
-#   country: varchar({ length: 2 }).notNull(),
-# });
-@final
-class CarriersTable(Base):
-    __tablename__ = "carriers"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    homepage: Mapped[str] = mapped_column(String)
-    country: Mapped[str] = mapped_column(String(2), nullable=False)
-
-
 @final
 class ScrProcessedTable(Base):
     __tablename__ = "scr_processed"
@@ -160,3 +147,308 @@ class ApiUserTable(Base):
     email: Mapped[str] = mapped_column(String(255))
     username: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
+
+
+###
+# transit data and web app tables. the web app reads these through
+# web/app/db/schema.ts, which `drizzle-kit pull` regenerates from the DB.
+# constraint and index names match what drizzle originally created.
+###
+
+
+class RouteType(enum.Enum):
+    bus = "bus"
+    tram = "tram"
+    rail = "rail"
+    subway = "subway"
+    ferry = "ferry"
+    cable_car = "cable_car"
+    gondola = "gondola"
+    funicular = "funicular"
+
+
+class ExceptionType(enum.Enum):
+    added = "added"
+    removed = "removed"
+
+
+class AddressProvider(enum.Enum):
+    osm = "osm"
+    google = "google"
+    here = "here"
+    mapbox = "mapbox"
+
+
+class UserRole(enum.Enum):
+    sys_superuser = "sys_superuser"
+    sys_admin = "sys_admin"
+    sys_moderator = "sys_moderator"
+    sub_default = "sub_default"
+    sub_premium = "sub_premium"
+
+
+# no SRID, which is what the columns actually have: drizzle dropped the 4326 that
+# schema.ts asks for when it generated the DDL. spatial_index=False because the
+# GiST indexes are declared explicitly under drizzle's names.
+def _point() -> Geometry:
+    return Geometry("POINT", spatial_index=False)
+
+
+@final
+class CarriersTable(Base):
+    __tablename__ = "carriers"
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    homepage: Mapped[str | None] = mapped_column(String)
+    contact_phone: Mapped[str | None] = mapped_column(String(20))
+    contact_email: Mapped[str | None] = mapped_column(String(255))
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+    country: Mapped[str] = mapped_column(String(2), nullable=False)
+
+
+@final
+class StopsTable(Base):
+    __tablename__ = "stops"
+    __table_args__ = (
+        Index("stops_spatial_idx", "coordinates", postgresql_using="gist"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    coordinates: Mapped[WKBElement | None] = mapped_column(_point())
+
+
+@final
+class RoutesTable(Base):
+    __tablename__ = "routes"
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    carrier_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "carriers.id", ondelete="CASCADE", name="routes_carrier_id_carriers_id_fk"
+        ),
+        nullable=False,
+    )
+    short_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    long_name: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(String)
+    route_type: Mapped[RouteType] = mapped_column(
+        Enum(RouteType, name="route_type"), nullable=False
+    )
+    color: Mapped[str | None] = mapped_column(String(6))
+    text_color: Mapped[str | None] = mapped_column(String(6))
+    origin_stop: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "stops.id", ondelete="RESTRICT", name="routes_origin_stop_stops_id_fk"
+        ),
+        nullable=False,
+    )
+    destination_stop: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "stops.id", ondelete="RESTRICT", name="routes_destination_stop_stops_id_fk"
+        ),
+        nullable=False,
+    )
+
+
+@final
+class CalendarTable(Base):
+    __tablename__ = "calendar"
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    monday: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    tuesday: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    wednesday: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=false()
+    )
+    thursday: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=false()
+    )
+    friday: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    saturday: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=false()
+    )
+    sunday: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+
+
+# calendar_dates has a column named `date`, which shadows the type inside its class body
+DateType: TypeAlias = date
+
+
+@final
+class CalendarDatesTable(Base):
+    __tablename__ = "calendar_dates"
+    __table_args__ = (
+        UniqueConstraint(
+            "calendar_id", "date", name="calendar_dates_calendar_id_date_unique"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    calendar_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "calendar.id",
+            ondelete="CASCADE",
+            name="calendar_dates_calendar_id_calendar_id_fk",
+        ),
+        nullable=False,
+    )
+    date: Mapped[DateType] = mapped_column(Date, nullable=False)
+    exception_type: Mapped[ExceptionType] = mapped_column(
+        Enum(ExceptionType, name="exception_type"), nullable=False
+    )
+
+
+@final
+class TripsTable(Base):
+    __tablename__ = "trips"
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    route_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("routes.id", ondelete="CASCADE", name="trips_route_id_routes_id_fk"),
+        nullable=False,
+    )
+    calendar_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "calendar.id", ondelete="RESTRICT", name="trips_calendar_id_calendar_id_fk"
+        ),
+        nullable=False,
+    )
+    duration: Mapped[int | None] = mapped_column(Integer)
+    distance: Mapped[int | None] = mapped_column(Integer)
+
+
+@final
+class FareAttributesTable(Base):
+    __tablename__ = "fare_attributes"
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    route_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "routes.id", ondelete="CASCADE", name="fare_attributes_route_id_routes_id_fk"
+        ),
+        nullable=False,
+    )
+    price: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+
+
+@final
+class TripStopsTable(Base):
+    __tablename__ = "trip_stops"
+    __table_args__ = (
+        UniqueConstraint(
+            "trip_id", "stop_order", name="trip_stops_trip_id_stop_order_unique"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    trip_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("trips.id", ondelete="CASCADE", name="trip_stops_trip_id_trips_id_fk"),
+        nullable=False,
+    )
+    stop_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("stops.id", ondelete="RESTRICT", name="trip_stops_stop_id_stops_id_fk"),
+        nullable=False,
+    )
+    stop_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    arrival_time: Mapped[time] = mapped_column(Time, nullable=False)
+    departure_time: Mapped[time] = mapped_column(Time, nullable=False)
+
+
+@final
+class StopsMetricsTable(Base):
+    __tablename__ = "stops_metrics"
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    stop_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("stops.id", ondelete="CASCADE", name="stops_metrics_stop_id_stops_id_fk"),
+        nullable=False,
+    )
+    click_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+@final
+class AddressesTable(Base):
+    __tablename__ = "addresses"
+    __table_args__ = (
+        Index("addresses_spatial_idx", "coordinates", postgresql_using="gist"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String, nullable=False)
+    street: Mapped[str | None] = mapped_column(String(255))
+    house_number: Mapped[str | None] = mapped_column(String(20))
+    city: Mapped[str | None] = mapped_column(String(100))
+    postcode: Mapped[str | None] = mapped_column(String(20))
+    country: Mapped[str | None] = mapped_column(String(2))
+    coordinates: Mapped[WKBElement | None] = mapped_column(_point())
+
+
+@final
+class AddressesRawTable(Base):
+    __tablename__ = "addresses_raw"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "external_id", name="addresses_raw_provider_external_id_unique"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    address_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "addresses.id",
+            ondelete="CASCADE",
+            name="addresses_raw_address_id_addresses_id_fk",
+        ),
+        nullable=False,
+    )
+    raw: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    provider: Mapped[AddressProvider] = mapped_column(
+        Enum(AddressProvider, name="address_provider"), nullable=False
+    )
+    external_id: Mapped[str | None] = mapped_column(String(255))
+
+
+@final
+class AddressesMetricsTable(Base):
+    __tablename__ = "addresses_metrics"
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    address_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "addresses.id",
+            ondelete="CASCADE",
+            name="addresses_metrics_address_id_addresses_id_fk",
+        ),
+        nullable=False,
+    )
+    click_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+@final
+class WebUsersTable(Base):
+    __tablename__ = "web_users"
+
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    username: Mapped[str | None] = mapped_column(String)
+    email: Mapped[str | None] = mapped_column(String)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[UserRole | None] = mapped_column(Enum(UserRole, name="user_role"))
+    last_logged_in: Mapped[datetime | None] = mapped_column(DateTime)
+    premium_expires: Mapped[datetime | None] = mapped_column(DateTime)

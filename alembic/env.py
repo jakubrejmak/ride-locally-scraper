@@ -1,11 +1,11 @@
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
 from ride_locally.config import config as app_config
 from ride_locally.db.schema import Base
 
@@ -31,26 +31,21 @@ target_metadata = Base.metadata
 # ... etc.
 
 
-# This Alembic setup only manages tables owned by the scraper service.
-# The database is shared with the web app, so autogenerate must ignore
-# web-owned tables even when they exist in the same schema.
-SCRAPER_TABLES = {
-    "scr_targets",
-    "scr_runs",
-    "scr_processed",
-    "scr_api_users",
-}
+# Alembic owns every table in the database. The one exception is PostGIS's
+# own spatial_ref_sys, which the extension creates and autogenerate would
+# otherwise try to drop.
+EXTENSION_TABLES = {"spatial_ref_sys"}
 
 
 def include_name(name, type_, parent_names):
     if type_ == "table":
-        return name in SCRAPER_TABLES
+        return name not in EXTENSION_TABLES
     return True
 
 
 def include_object(object_, name, type_, reflected, compare_to):
     if type_ == "table":
-        return name in SCRAPER_TABLES
+        return name not in EXTENSION_TABLES
     return True
 
 
