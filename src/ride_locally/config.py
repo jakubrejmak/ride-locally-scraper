@@ -35,20 +35,20 @@ class Config(BaseSettings):
     # a claim held longer than this is considered abandoned
     WORKER_STALE_CLAIM_SECONDS: int = 900
 
-    LOG_DIR: str = "logs"
+    LOG_DIR: str = f"{PROJECT_ROOT}/logs"
     LOG_LVL: str = "INFO"
 
     DEBUG_OUTPUTS: bool = True
-    DEBUG_OUTPUT_DIR: str = "output_files/debug"
+    DEBUG_OUTPUT_DIR: str = f"{PROJECT_ROOT}/output_files/debug"
 
-    SCRAPER_OUTPUT_DIR: str = "output_files/scraper"
-    PROCESSOR_OUTPUT_DIR: str = "output_files/processor"
+    SCRAPER_OUTPUT_DIR: str = f"{PROJECT_ROOT}/output_files/scraper"
+    PROCESSOR_OUTPUT_DIR: str = f"{PROJECT_ROOT}/output_files/processor"
 
-    SCRAPER_SCRIPTS_DIR: str = "src/ride_locally/worker/scrapers/scraper_scripts"
-    PREPROCESSOR_SCRIPT_DIR: str = "src/ride_locally/worker/preprocessor/preprocessor_scripts"
+    SCRAPER_SCRIPTS_DIR: str = f"{PROJECT_ROOT}/src/ride_locally/worker/scrapers/scraper_scripts"
+    PREPROCESSOR_SCRIPT_DIR: str = f"{PROJECT_ROOT}/src/ride_locally/worker/preprocessor/preprocessor_scripts"
 
-    PREPROCESSOR_PROMPTS_DIR: str = "src/ride_locally/worker/system_prompts/preprocessor_prompts"
-    PROCESSOR_PROMPTS_DIR: str = "src/ride_locally/worker/system_prompts/processor_prompts"
+    PREPROCESSOR_PROMPTS_DIR: str = f"{PROJECT_ROOT}/src/ride_locally/worker/system_prompts/preprocessor_prompts"
+    PROCESSOR_PROMPTS_DIR: str = f"{PROJECT_ROOT}/src/ride_locally/worker/system_prompts/processor_prompts"
 
     API_ADMIN_EMAIL: str = "admin@email.com"
     API_ADMIN_USERNAME: str = "admin"
