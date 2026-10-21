@@ -19,7 +19,8 @@ import openrouter
 
 from ride_locally.config import config
 from ride_locally.models.files import FileData, FileResult
-from ride_locally.models.preprocessors import Region, RegionType, TimetableRegions
+from ride_locally.models.llm_structured_outputs import Region, RegionType, \
+    TimetableRegions
 from ride_locally.models.processors import LLMProcessorConfig
 from ride_locally.worker.llm.openrouter_utils import OpenRouterUtils as utils
 from ride_locally.worker.visual.image_utils import (

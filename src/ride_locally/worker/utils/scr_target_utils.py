@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 from ride_locally.db.schema import CarriersTable, ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.models.targets import NewScrTarget, ScrTarget
+from ride_locally.models.ScraperTarget import NewScrTarget, ScrTarget
 from ride_locally.worker.utils.shared import diff_model_against
 
 log = getLogger(__name__)

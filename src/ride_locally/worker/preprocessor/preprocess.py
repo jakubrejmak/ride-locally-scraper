@@ -3,9 +3,10 @@ import inspect
 from pathlib import Path
 from typing import Callable
 
-from ride_locally.models.files import FileResult
-from ride_locally.models.preprocessors import PreprocessorConfig, PreprocessorTool
 from ride_locally.config import config
+from ride_locally.models.PreprocessorConfig import PreprocessorConfig
+from ride_locally.models.PreprocessorTool import PreprocessorTool
+from ride_locally.models.files import FileResult
 
 
 def _parse_ref(ref: str) -> tuple[Path, str]:

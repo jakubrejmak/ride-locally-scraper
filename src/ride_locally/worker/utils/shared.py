@@ -3,7 +3,8 @@ from sqlalchemy import select
 
 from ride_locally.db.schema import ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.models.targets import ScrTargetConfig
+from ride_locally.models.ScraperTargetConfig import ScrTargetConfig
+
 
 ###
 # shared

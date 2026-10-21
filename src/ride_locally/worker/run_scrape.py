@@ -12,13 +12,12 @@ from sqlalchemy import insert, select, update
 from ride_locally.config import config
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable
 from ride_locally.db.session import session
+from ride_locally.models.FirecrawlConfig import FirecrawlConfig
+from ride_locally.models.ScraperScriptResult import ScrScriptResult
+from ride_locally.models.ScraperTarget import ScrTarget
+from ride_locally.models.ScraplingConfig import ScraplingScriptConfig, \
+    ScraplingSimpleConfig
 from ride_locally.models.files import FileResult
-from ride_locally.models.scrapers import (
-    FirecrawlConfig,
-    ScraplingScriptConfig,
-    ScraplingSimpleConfig,
-)
-from ride_locally.models.targets import ScrScriptResult, ScrTarget
 from ride_locally.worker.files import diff_file_results, save_result, \
     FileOperationException
 from ride_locally.worker.scrapers.run_firecrawl import run_firecrawl

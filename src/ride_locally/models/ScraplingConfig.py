@@ -1,12 +1,15 @@
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, BaseModel, ConfigDict, model_validator
 from typing_extensions import Self
 
 
-class FirecrawlConfig(BaseModel):
-    scrape_method: Literal["firecrawl"] = "firecrawl"
-    format: str | None = None
+class ScraplingScriptConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scrape_method: Literal["scrapling"] = "scrapling"
+    mode: Literal["script"] = "script"
+    script_path: str
 
 
 class ScraplingSimpleConfig(BaseModel):
@@ -29,14 +32,6 @@ class ScraplingSimpleConfig(BaseModel):
                 "force_mime is meaningless when selectors are set (output is always text/html)"
             )
         return self
-
-
-class ScraplingScriptConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    scrape_method: Literal["scrapling"] = "scrapling"
-    mode: Literal["script"] = "script"
-    script_path: str
 
 
 ScraplingConfig = Annotated[

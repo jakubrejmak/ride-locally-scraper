@@ -4,8 +4,8 @@ from sqlalchemy import select
 
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from ride_locally.db.session import session
+from ride_locally.models.ScraperRun import ScrRun
 from ride_locally.models.files import FileResult
-from ride_locally.models.targets import ScrRun
 from ride_locally.worker.files import read_result
 
 

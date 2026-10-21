@@ -6,12 +6,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ride_locally.models.targets import GetTargetsResponse
+from ride_locally.api.models.GetTargetsResponse import GetTargetsResponse
 from ride_locally.db.schema import ScrTargetTable
-from ride_locally.models.targets import (
-    NewScrTarget,
-    ScrTarget,
-)
+from ride_locally.models.ScraperTarget import NewScrTarget, ScrTarget
 
 
 async def create_target(*, db: AsyncSession, body: NewScrTarget) -> ScrTarget:

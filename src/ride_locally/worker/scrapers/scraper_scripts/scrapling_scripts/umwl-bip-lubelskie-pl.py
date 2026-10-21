@@ -6,21 +6,20 @@ from collections.abc import Generator
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import ClassVar, Sequence, TypedDict
+from typing import ClassVar
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import openpyxl
 import xlrd
 from scrapling.engines._browsers._controllers import AsyncDynamicSession
 
+from ride_locally.models.ScraperScriptResult import ScrScriptResult
+from ride_locally.models.ScraperTarget import NewScrTarget
+from ride_locally.models.ScraperTargetConfig import ScrTargetConfig
 from ride_locally.models.files import FileData, FileMeta, FileResult
-from ride_locally.models.targets import (
-    NewScrTarget,
-    ScrScriptResult,
-    ScrTargetConfig,
-)
 from ride_locally.worker.files import mime_from_bytes
 from ride_locally.worker.scrapers.exceptions import ScraperProcessException
+from ride_locally.worker.utils.openpyxl_helpers import OpenpyxlHelper
 from ride_locally.worker.utils.scr_run_utils import (
     get_file_bytes,
     get_previous_run_result_by,
@@ -28,7 +27,6 @@ from ride_locally.worker.utils.scr_run_utils import (
 )
 from ride_locally.worker.utils.scr_target_utils import add_new_targets, \
     disable_targets_by_url, get_carrier_id_by
-from ride_locally.worker.utils.openpyxl_helpers import OpenpyxlHelper
 from ride_locally.worker.utils.table_search import TableSearch
 from ride_locally.worker.utils.xlrd_helpers import XlrdHelper
 

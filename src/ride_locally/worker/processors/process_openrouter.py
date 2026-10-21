@@ -1,13 +1,13 @@
 import openrouter
 
 from ride_locally.config import config as config_
-from ride_locally.worker.llm.openrouter_utils import OpenRouterUtils as utils
 from ride_locally.models.files import FileData
-from ride_locally.models.processors import OpenRouterProviderConfig
+from ride_locally.models.processors import OpenRouterLLMProviderConfig
+from ride_locally.worker.llm.openrouter_utils import OpenRouterUtils as utils
 
 
 async def process_image(
-    file: FileData, config: OpenRouterProviderConfig
+    file: FileData, config: OpenRouterLLMProviderConfig
 ) -> str | None:
     MIME_TYPES = ["image/jpeg"]
     if file.mime not in MIME_TYPES:

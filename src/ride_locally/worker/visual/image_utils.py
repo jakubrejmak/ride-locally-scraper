@@ -2,7 +2,7 @@ import io
 
 from PIL import Image, ImageDraw
 
-from ride_locally.models.preprocessors import Region
+from ride_locally.models.llm_structured_outputs import Region
 from ride_locally.models.visual import Direction, Square
 
 

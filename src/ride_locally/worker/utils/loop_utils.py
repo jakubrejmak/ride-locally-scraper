@@ -2,12 +2,12 @@ from datetime import datetime, timedelta, timezone
 from logging import getLogger
 
 from croniter import croniter
-from sqlalchemy import select, text, update
+from sqlalchemy import text, update
 
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.models.targets import ScrRun, ScrTarget, ScrTargetConfig
-
+from ride_locally.models.ScraperRun import ScrRun
+from ride_locally.models.ScraperTarget import ScrTarget
 
 log = getLogger(__name__)
 

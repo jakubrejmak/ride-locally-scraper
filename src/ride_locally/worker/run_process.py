@@ -11,9 +11,9 @@ from sqlalchemy import insert, select, update
 from ride_locally.config import config
 from ride_locally.db.schema import ProcessStatus, ScrProcessedTable
 from ride_locally.db.session import session
+from ride_locally.models.ScraperRun import ScrRun
 from ride_locally.models.files import FileResult
 from ride_locally.models.processors import LLMProcessorConfig
-from ride_locally.models.targets import ScrRun
 from ride_locally.worker.files import read_result, save_result
 from ride_locally.worker.preprocessor.preprocess import preprocess_file
 from ride_locally.worker.processors.process_llm import llm_process_files
