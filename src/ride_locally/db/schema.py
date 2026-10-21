@@ -2,7 +2,7 @@ import enum
 from datetime import date, datetime, time
 from typing import TypeAlias, final
 
-from geoalchemy2 import Geometry, WKBElement
+from geoalchemy2 import Geography, WKBElement
 from sqlalchemy import (
     Boolean,
     Date,
@@ -54,7 +54,7 @@ class ScrTargetTable(Base):
     config: Mapped[dict] = mapped_column(JSONB, nullable=False)
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    meta: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # next wall-clock instant this target is eligible to run.
     # computed from schedule_cron on insert and on release. set to now() for "run now".
@@ -64,7 +64,9 @@ class ScrTargetTable(Base):
     # claimed_by is hostname:pid, kept for observability + the reaper.
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     claimed_by: Mapped[str | None] = mapped_column(String(255))
-    carrier_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    carrier_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("carriers.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -101,7 +103,7 @@ class ScrRunTable(Base):
     # False = scrape produced no diff vs previous run, processor should skip it.
     # decided at scrape-finish so the processor never diffs at pop time.
     should_process: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    meta: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     claimed_by: Mapped[str | None] = mapped_column(String(255))
     o_filepath: Mapped[str | None] = mapped_column(Text)
@@ -144,8 +146,8 @@ class ApiUserTable(Base):
     __tablename__ = "scr_api_users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(String(255))
-    username: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    username: Mapped[str] = mapped_column(String(255), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
 
 
@@ -187,11 +189,10 @@ class UserRole(enum.Enum):
     sub_premium = "sub_premium"
 
 
-# no SRID, which is what the columns actually have: drizzle dropped the 4326 that
-# schema.ts asks for when it generated the DDL. spatial_index=False because the
-# GiST indexes are declared explicitly under drizzle's names.
-def _point() -> Geometry:
-    return Geometry("POINT", spatial_index=False)
+# spatial_index=False because the GiST indexes are declared explicitly under
+# drizzle's names.
+def _point() -> Geography:
+    return Geography("POINT", srid=4326, spatial_index=False)
 
 
 @final
@@ -378,7 +379,9 @@ class StopsMetricsTable(Base):
         ForeignKey("stops.id", ondelete="CASCADE", name="stops_metrics_stop_id_stops_id_fk"),
         nullable=False,
     )
-    click_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    click_time: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
 
 @final
@@ -438,17 +441,25 @@ class AddressesMetricsTable(Base):
         ),
         nullable=False,
     )
-    click_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    click_time: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
 
 @final
 class WebUsersTable(Base):
     __tablename__ = "web_users"
+    __table_args__ = (
+        UniqueConstraint("username", name="web_users_username_unique"),
+        UniqueConstraint("email", name="web_users_email_unique"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
     username: Mapped[str | None] = mapped_column(String)
     email: Mapped[str | None] = mapped_column(String)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[UserRole | None] = mapped_column(Enum(UserRole, name="user_role"))
-    last_logged_in: Mapped[datetime | None] = mapped_column(DateTime)
-    premium_expires: Mapped[datetime | None] = mapped_column(DateTime)
+    last_logged_in: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True))
+    premium_expires: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True))
