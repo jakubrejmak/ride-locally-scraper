@@ -6,29 +6,27 @@ from collections.abc import Generator
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import ClassVar, Sequence, TypedDict
+from typing import ClassVar
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import openpyxl
 import xlrd
 from scrapling.engines._browsers._controllers import AsyncDynamicSession
 
+from ride_locally.models.ScraperScriptResult import ScrScriptResult
+from ride_locally.models.ScraperTarget import NewScrapeTarget
+from ride_locally.models.ScraperTargetConfig import ScraperTargetConfig
 from ride_locally.models.files import FileData, FileMeta, FileResult
-from ride_locally.models.targets import (
-    NewScrTarget,
-    ScrScriptResult,
-    ScrTargetConfig,
-)
 from ride_locally.worker.files import mime_from_bytes
 from ride_locally.worker.scrapers.exceptions import ScraperProcessException
+from ride_locally.worker.utils.openpyxl_helpers import OpenpyxlHelper
 from ride_locally.worker.utils.scr_run_utils import (
-    get_file_bytes,
+    get_file_bytes_from_scrape_run,
     get_previous_run_result_by,
     get_run_meta,
 )
 from ride_locally.worker.utils.scr_target_utils import add_new_targets, \
     disable_targets_by_url, get_carrier_id_by
-from ride_locally.worker.utils.openpyxl_helpers import OpenpyxlHelper
 from ride_locally.worker.utils.table_search import TableSearch
 from ride_locally.worker.utils.xlrd_helpers import XlrdHelper
 
@@ -180,7 +178,7 @@ async def run(url: str) -> ScrScriptResult | None:
             )
         body = await resp.body()
 
-        if previous_result is not None and get_file_bytes(
+        if previous_result is not None and get_file_bytes_from_scrape_run(
                 previous_result) == body:
             return None  # return if the previous run's bytes are the same as the downloaded file's
 
@@ -237,7 +235,7 @@ async def run(url: str) -> ScrScriptResult | None:
         sheet.append(tuple(values))
 
     # build a list of targets discovered in the xls, keyed by url to drop duplicates
-    discovered_targets: dict[str, NewScrTarget] = {}
+    discovered_targets: dict[str, NewScrapeTarget] = {}
 
     for target in sheet.get_row():
         timetable_url = target["timetable_url"]
@@ -254,10 +252,10 @@ async def run(url: str) -> ScrScriptResult | None:
 
         # build an array of new scrape targets (urls in xls) discovered by this target
         carrier_id = await get_carrier_id_by(name=target["carrier_name"])
-        discovered_targets[timetable_url] = NewScrTarget(
+        discovered_targets[timetable_url] = NewScrapeTarget(
             name=" - ".join(name_parts)[:255],
             url=timetable_url,
-            config=ScrTargetConfig.from_preset("default_new_target"),
+            config=ScraperTargetConfig.from_preset("default_new_target"),
             is_active=False,
             schedule_cron=None,
             carrier_id=carrier_id,

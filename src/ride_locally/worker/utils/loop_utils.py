@@ -2,12 +2,12 @@ from datetime import datetime, timedelta, timezone
 from logging import getLogger
 
 from croniter import croniter
-from sqlalchemy import select, text, update
+from sqlalchemy import text, update
 
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable, ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.models.targets import ScrRun, ScrTarget, ScrTargetConfig
-
+from ride_locally.models.ScraperRun import ScraperRun
+from ride_locally.models.ScraperTarget import ScrapeTarget
 
 log = getLogger(__name__)
 
@@ -22,7 +22,7 @@ _SCRAPE_RETRY_DELAY = timedelta(minutes=5)
 ###
 
 
-async def claim_scrape_target(worker_id: str) -> ScrTarget | None:
+async def claim_scrape_target(worker_id: str) -> ScrapeTarget | None:
     async with session() as s:
         r = await s.execute(
             text(
@@ -48,10 +48,10 @@ async def claim_scrape_target(worker_id: str) -> ScrTarget | None:
         await s.commit()
     if row is None:
         return None
-    return ScrTarget.model_validate(row)
+    return ScrapeTarget.model_validate(row)
 
 
-async def release_scrape_target(target: ScrTarget, success: bool) -> None:
+async def release_scrape_target(target: ScrapeTarget, success: bool) -> None:
     # clear the claim and set the next eligibility instant.
     #   success + cron  -> next cron slot (normal cadence)
     #   success + no cron -> NULL (one-shot done, never reschedules)
@@ -85,7 +85,7 @@ async def release_scrape_target(target: ScrTarget, success: bool) -> None:
 ###
 
 
-async def claim_processor_run(worker_id: str) -> ScrRun | None:
+async def claim_processor_run(worker_id: str) -> ScraperRun | None:
     async with session() as s:
         r = await s.execute(
             text(
@@ -111,7 +111,7 @@ async def claim_processor_run(worker_id: str) -> ScrRun | None:
         await s.commit()
     if row is None:
         return None
-    return ScrRun.model_validate(row)
+    return ScraperRun.model_validate(row)
 
 
 async def release_processor_run(run_id: int) -> None:

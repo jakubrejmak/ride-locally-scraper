@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 from ride_locally.db.schema import CarriersTable, ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.models.targets import NewScrTarget, ScrTarget
+from ride_locally.models.ScraperTarget import NewScrapeTarget, ScrapeTarget
 from ride_locally.worker.utils.shared import diff_model_against
 
 log = getLogger(__name__)
@@ -15,7 +15,8 @@ log = getLogger(__name__)
 T = TypeVar("T", bound=DeclarativeBase)
 
 
-async def update_scr_target(target: ScrTarget, updated: NewScrTarget) -> dict | None:
+async def update_scr_target(target: ScrapeTarget,
+                            updated: NewScrapeTarget) -> dict | None:
     current = target.model_dump(exclude_unset=True)
     diff = diff_model_against(updated, current)
     if not diff:
@@ -30,7 +31,8 @@ async def update_scr_target(target: ScrTarget, updated: NewScrTarget) -> dict | 
     return diff
 
 
-async def disable_targets(targets: Iterable[ScrTarget], *, reason: str) -> int:
+async def disable_targets(targets: Iterable[ScrapeTarget], *,
+                          reason: str) -> int:
     async with session() as s:
         stmt = (
             update(ScrTargetTable)
@@ -50,7 +52,7 @@ async def disable_targets(targets: Iterable[ScrTarget], *, reason: str) -> int:
 
 
 async def _get_similar_targets_trgm(
-    target: NewScrTarget, similarity_threshold: float
+        target: NewScrapeTarget, similarity_threshold: float
 ) -> list[ScrTargetTable]:
     """
     Existing scr_targets whose `name` or `url` trigram-matches `target` at or
@@ -103,12 +105,13 @@ async def get_targets_by(
 
 
 async def add_new_targets(
-    new_targets: Iterable[NewScrTarget],
+        new_targets: Iterable[NewScrapeTarget],
     *,
     warn_on_duplicate: bool = False,
     discard_duplicates: bool = False,
-    duplicate_comp_func: Callable[[NewScrTarget], Awaitable[bool]] | None = None,
-) -> tuple[list[NewScrTarget], list[NewScrTarget]]:
+        duplicate_comp_func: Callable[[NewScrapeTarget], Awaitable[
+            bool]] | None = None,
+) -> tuple[list[NewScrapeTarget], list[NewScrapeTarget]]:
     """
     Adds new scraper targets to `scr_targets`.
 
@@ -123,8 +126,8 @@ async def add_new_targets(
     if not new_targets:
         return [], []
 
-    added: list[NewScrTarget] = []
-    failed: list[NewScrTarget] = []
+    added: list[NewScrapeTarget] = []
+    failed: list[NewScrapeTarget] = []
 
     for t in new_targets:
         try:

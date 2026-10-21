@@ -3,19 +3,20 @@ from sqlalchemy import select
 
 from ride_locally.db.schema import ScrTargetTable
 from ride_locally.db.session import session
-from ride_locally.models.targets import ScrTargetConfig
+from ride_locally.models.ScraperTargetConfig import ScraperTargetConfig
+
 
 ###
 # shared
 ###
 
 
-async def get_target_config(target_id: int) -> ScrTargetConfig:
+async def get_target_config(target_id: int) -> ScraperTargetConfig:
     async with session() as s:
         q = select(ScrTargetTable.config).where(ScrTargetTable.id == target_id)
         r = await s.execute(q)
         cfg = r.scalar_one()
-    return ScrTargetConfig.model_validate(cfg)
+    return ScraperTargetConfig.model_validate(cfg)
 
 
 def diff_model_against(

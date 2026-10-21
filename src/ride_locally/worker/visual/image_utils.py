@@ -2,8 +2,8 @@ import io
 
 from PIL import Image, ImageDraw
 
-from ride_locally.models.preprocessors import Region
 from ride_locally.models.visual import Direction, Square
+from ride_locally.worker.llm.llm_structured_outputs import Region
 
 
 def region_to_square(region: Region) -> Square:

@@ -6,15 +6,13 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ride_locally.models.targets import GetTargetsResponse
+from ride_locally.api.models.GetTargetsResponse import GetTargetsResponse
 from ride_locally.db.schema import ScrTargetTable
-from ride_locally.models.targets import (
-    NewScrTarget,
-    ScrTarget,
-)
+from ride_locally.models.ScraperTarget import NewScrapeTarget, ScrapeTarget
 
 
-async def create_target(*, db: AsyncSession, body: NewScrTarget) -> ScrTarget:
+async def create_target(*, db: AsyncSession,
+                        body: NewScrapeTarget) -> ScrapeTarget:
     # new targets default to immediately due unless the caller specified
     # next_due_at (e.g. "create this but don't run until midnight").
     next_due = body.next_due_at or datetime.now(timezone.utc)
@@ -34,12 +32,12 @@ async def create_target(*, db: AsyncSession, body: NewScrTarget) -> ScrTarget:
     await db.commit()
     await db.refresh(row)
 
-    return ScrTarget.model_validate(row)
+    return ScrapeTarget.model_validate(row)
 
 
 async def patch_target(
-    *, db: AsyncSession, target_id: int, body: NewScrTarget
-) -> ScrTarget:
+        *, db: AsyncSession, target_id: int, body: NewScrapeTarget
+) -> ScrapeTarget:
     # rejected while claimed - a running scrape's release would clobber the
     # caller's changes on next_due_at. simpler to disallow than to reconcile.
     current = await db.get(ScrTargetTable, target_id)
@@ -72,10 +70,10 @@ async def patch_target(
         await db.commit()
 
     refreshed = await db.get(ScrTargetTable, target_id)
-    return ScrTarget.model_validate(refreshed)
+    return ScrapeTarget.model_validate(refreshed)
 
 
-async def request_run_now(*, db: AsyncSession, target_id: int) -> ScrTarget:
+async def request_run_now(*, db: AsyncSession, target_id: int) -> ScrapeTarget:
     # single atomic UPDATE: sets next_due_at = now() only if the target is
     # both active and free. trigger fires NOTIFY, next idle worker claims it.
     now = datetime.now(timezone.utc)
@@ -101,7 +99,7 @@ async def request_run_now(*, db: AsyncSession, target_id: int) -> ScrTarget:
             status.HTTP_409_CONFLICT, "target is currently being scraped"
         )
 
-    return ScrTarget.model_validate(row)
+    return ScrapeTarget.model_validate(row)
 
 
 async def list_targets(
@@ -142,7 +140,7 @@ async def list_targets(
     total = (await db.execute(total_q)).scalar_one()
 
     return GetTargetsResponse(
-        items=[ScrTarget.model_validate(row) for row in rows],
+        items=[ScrapeTarget.model_validate(row) for row in rows],
         total=total,
         page=page,
         per_page=per_page,

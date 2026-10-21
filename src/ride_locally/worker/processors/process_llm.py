@@ -2,14 +2,14 @@ import importlib
 
 from ride_locally.models.files import FileData, FileResult
 from ride_locally.models.processors import (
-    GeminiProviderConfig,
+    GeminiLLMProviderConfig,
     LLMProcessorConfig,
-    OpenRouterProviderConfig,
+    OpenRouterLLMProviderConfig,
 )
 
 PROCESSORS = {
-    GeminiProviderConfig: "process_gemini",
-    OpenRouterProviderConfig: "process_openrouter",
+    GeminiLLMProviderConfig: "process_gemini",
+    OpenRouterLLMProviderConfig: "process_openrouter",
 }
 
 

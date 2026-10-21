@@ -12,13 +12,12 @@ from sqlalchemy import insert, select, update
 from ride_locally.config import config
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable
 from ride_locally.db.session import session
+from ride_locally.models.FirecrawlConfig import FirecrawlConfig
+from ride_locally.models.ScraperScriptResult import ScrScriptResult
+from ride_locally.models.ScraperTarget import ScrapeTarget
+from ride_locally.models.ScraplingConfig import ScraplingScriptConfig, \
+    ScraplingSimpleConfig
 from ride_locally.models.files import FileResult
-from ride_locally.models.scrapers import (
-    FirecrawlConfig,
-    ScraplingScriptConfig,
-    ScraplingSimpleConfig,
-)
-from ride_locally.models.targets import ScrScriptResult, ScrTarget
 from ride_locally.worker.files import diff_file_results, save_result, \
     FileOperationException
 from ride_locally.worker.scrapers.run_firecrawl import run_firecrawl
@@ -53,7 +52,7 @@ async def _get_prev_run_filepath(target_id: int,
         return r.scalar_one_or_none()
 
 
-async def _insert_run(target: ScrTarget) -> int:
+async def _insert_run(target: ScrapeTarget) -> int:
     # returning: run.id. priority is denormalized from the target so the
     # processor's claim query can order by priority without joining.
     async with session() as s:
@@ -107,7 +106,7 @@ async def _mark_run_error(run_id: int, message: str | None) -> None:
         await s.commit()
 
 
-async def run_scrape(target: ScrTarget) -> bool:
+async def run_scrape(target: ScrapeTarget) -> bool:
     """Takes a target snapshot and records its result to scr_runs."""
 
     log.info(

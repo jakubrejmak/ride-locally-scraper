@@ -11,9 +11,9 @@ from sqlalchemy import insert, select, update
 from ride_locally.config import config
 from ride_locally.db.schema import ProcessStatus, ScrProcessedTable
 from ride_locally.db.session import session
+from ride_locally.models.ScraperRun import ScraperRun
 from ride_locally.models.files import FileResult
 from ride_locally.models.processors import LLMProcessorConfig
-from ride_locally.models.targets import ScrRun
 from ride_locally.worker.files import read_result, save_result
 from ride_locally.worker.preprocessor.preprocess import preprocess_file
 from ride_locally.worker.processors.process_llm import llm_process_files
@@ -22,7 +22,7 @@ from ride_locally.worker.utils.shared import get_target_config
 log = getLogger(__name__)
 
 
-async def _get_or_create_processed(run: ScrRun) -> int:
+async def _get_or_create_processed(run: ScraperRun) -> int:
     # exactly one processed row per run. if a previous attempt crashed we
     # reuse the same row rather than piling up siblings.
     async with session() as s:
@@ -87,7 +87,7 @@ async def _mark_error(processed_id: int, message: str | None) -> None:
         await s.commit()
 
 
-async def run_process(run: ScrRun) -> bool:
+async def run_process(run: ScraperRun) -> bool:
     """Takes a run snapshot, processes its output file, records to scr_processed."""
     if run.o_filepath is None:
         raise ValueError(f"scrape run: '{run.id}' has no output filepath to process")

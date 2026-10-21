@@ -4,11 +4,12 @@ from typing import Any
 import openrouter
 
 from ride_locally.config import config
+from ride_locally.models.files import FileData, FileResult
 from ride_locally.models.processors import LLMProcessorConfig
+from ride_locally.worker.llm.llm_structured_outputs import \
+    TextOrientationCorrection
 from ride_locally.worker.llm.openrouter_utils import OpenRouterUtils as utils
 from ride_locally.worker.visual.deskew import deskew_image, rotate_image
-from ride_locally.models.files import FileData, FileResult
-from ride_locally.models.preprocessors import TextOrientationCorrection
 
 log = getLogger(__name__)
 

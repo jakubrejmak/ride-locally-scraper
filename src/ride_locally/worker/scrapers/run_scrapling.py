@@ -4,12 +4,10 @@ import inspect
 from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
 
 from ride_locally.config import config
+from ride_locally.models.ScraperScriptResult import ScrScriptResult
+from ride_locally.models.ScraplingConfig import ScraplingScriptConfig, \
+    ScraplingSimpleConfig
 from ride_locally.models.files import FileData, FileResult
-from ride_locally.models.scrapers import (
-    ScraplingScriptConfig,
-    ScraplingSimpleConfig,
-)
-from ride_locally.models.targets import ScrScriptResult
 from ride_locally.worker.files import mime_from_bytes
 from ride_locally.worker.scrapers.exceptions import ScraperProcessException
 
