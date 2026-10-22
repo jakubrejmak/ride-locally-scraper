@@ -52,6 +52,15 @@ async def patch_target(
     patch = body.model_dump(exclude_unset=True)
     if "config" in patch and body.config is not None:
         patch["config"] = body.config.model_dump(mode="json")
+    if "meta" in patch:
+        if body.meta.root is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "meta can't be null; clear entries with {code: null}",
+            )
+        target = ScrapeTarget.model_validate(current)
+        target.meta.update(body.meta)
+        patch["meta"] = target.meta.model_dump(mode="json")
 
     # if schedule_cron changed and the caller didn't also override next_due_at,
     # recompute next_due_at so the new cadence takes effect from now.

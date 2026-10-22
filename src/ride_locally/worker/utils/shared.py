@@ -26,9 +26,9 @@ def diff_model_against(
     columns: set[str] | None = None,
 ) -> dict:
     """
-    Returns fields where updated differs from current. Optionally filtered to `columns`
+    Returns fields set on updated that differ from current. Optionally filtered to `columns`
     """
-    dumped = updated.model_dump()
+    dumped = updated.model_dump(include=updated.model_fields_set)
     if columns is not None:
         dumped = {k: v for k, v in dumped.items() if k in columns}
     return {k: v for k, v in dumped.items() if v != current.get(k)}

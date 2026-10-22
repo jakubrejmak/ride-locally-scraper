@@ -54,7 +54,8 @@ class ScrTargetTable(Base):
     config: Mapped[dict] = mapped_column(JSONB, nullable=False)
     schedule_cron: Mapped[str | None] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    meta: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True),
+                                              nullable=True)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # next wall-clock instant this target is eligible to run.
     # computed from schedule_cron on insert and on release. set to now() for "run now".
@@ -103,7 +104,8 @@ class ScrRunTable(Base):
     # False = scrape produced no diff vs previous run, processor should skip it.
     # decided at scrape-finish so the processor never diffs at pop time.
     should_process: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    meta: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True),
+                                              nullable=True)
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     claimed_by: Mapped[str | None] = mapped_column(String(255))
     o_filepath: Mapped[str | None] = mapped_column(Text)
@@ -151,13 +153,6 @@ class ApiUserTable(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
 
 
-###
-# transit data and web app tables. the web app reads these through
-# web/app/db/schema.ts, which `drizzle-kit pull` regenerates from the DB.
-# constraint and index names match what drizzle originally created.
-###
-
-
 class RouteType(enum.Enum):
     bus = "bus"
     tram = "tram"
@@ -189,8 +184,6 @@ class UserRole(enum.Enum):
     sub_premium = "sub_premium"
 
 
-# spatial_index=False because the GiST indexes are declared explicitly under
-# drizzle's names.
 def _point() -> Geography:
     return Geography("POINT", srid=4326, spatial_index=False)
 

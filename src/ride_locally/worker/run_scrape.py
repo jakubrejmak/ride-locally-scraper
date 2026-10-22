@@ -5,7 +5,6 @@
 from datetime import datetime, timezone
 from logging import getLogger
 from logging.handlers import RotatingFileHandler
-from typing import Any
 
 from sqlalchemy import insert, select, update
 
@@ -13,6 +12,7 @@ from ride_locally.config import config
 from ride_locally.db.schema import ScrapeStatus, ScrRunTable
 from ride_locally.db.session import session
 from ride_locally.models.FirecrawlConfig import FirecrawlConfig
+from ride_locally.models.ScraperRunMeta import ScraperRunMeta
 from ride_locally.models.ScraperScriptResult import ScrScriptResult
 from ride_locally.models.ScraperTarget import ScrapeTarget
 from ride_locally.models.ScraplingConfig import ScraplingScriptConfig, \
@@ -74,7 +74,7 @@ async def _insert_run(target: ScrapeTarget) -> int:
 
 async def _mark_run_success(
         run_id: int, o_filepath: str | None, should_process: bool,
-        run_meta: dict[str, Any] | None
+        run_meta: ScraperRunMeta
 ) -> None:
     async with session() as s:
         _ = await s.execute(
@@ -85,7 +85,7 @@ async def _mark_run_success(
                 finished_at=datetime.now(timezone.utc),
                 o_filepath=o_filepath,
                 should_process=should_process,
-                meta=run_meta,
+                meta=run_meta.model_dump(mode="json"),
             )
         )
         await s.commit()
@@ -127,7 +127,7 @@ async def run_scrape(target: ScrapeTarget) -> bool:
                 raise ValueError("No scrape method provided")
 
         o_filepath: str | None = None
-        run_meta: dict[str, Any] | None = None
+        run_meta = ScraperRunMeta()
 
         if isinstance(result, FileResult):
             if result:

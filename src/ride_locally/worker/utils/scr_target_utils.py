@@ -8,6 +8,7 @@ from sqlalchemy.orm import DeclarativeBase
 from ride_locally.db.schema import CarriersTable, ScrTargetTable
 from ride_locally.db.session import session
 from ride_locally.models.ScraperTarget import NewScrapeTarget, ScrapeTarget
+from ride_locally.models.ScraperTargetMeta import TargetDeactivated
 from ride_locally.worker.utils.shared import diff_model_against
 
 log = getLogger(__name__)
@@ -21,6 +22,9 @@ async def update_scr_target(target: ScrapeTarget,
     diff = diff_model_against(updated, current)
     if not diff:
         return None
+    if "meta" in diff:
+        target.meta.update(updated.meta)
+        diff["meta"] = target.meta.model_dump(mode="json")
 
     async with session() as s:
         await s.execute(
@@ -33,22 +37,23 @@ async def update_scr_target(target: ScrapeTarget,
 
 async def disable_targets(targets: Iterable[ScrapeTarget], *,
                           reason: str) -> int:
+    updated = 0
     async with session() as s:
-        stmt = (
-            update(ScrTargetTable)
-            .where(ScrTargetTable.id.in_(target.id for target in targets))
-            .values(
-                is_active=False,
-                meta={"deactivate_reason": reason},
+        for target in targets:
+            target.meta.add(TargetDeactivated(reason=reason))
+            res = await s.execute(
+                update(ScrTargetTable)
+                .where(ScrTargetTable.id == target.id)
+                .values(
+                    is_active=False,
+                    meta=target.meta.model_dump(mode="json"),
+                )
+                .returning(ScrTargetTable.id)
             )
-            .returning(ScrTargetTable.id)
-        )
-        res = await s.execute(stmt)
+            updated += len(res.scalars().all())
         await s.commit()
 
-    updated = res.scalars().all()
-
-    return len(updated)
+    return updated
 
 
 async def _get_similar_targets_trgm(
@@ -131,7 +136,7 @@ async def add_new_targets(
 
     for t in new_targets:
         try:
-            vals = t.model_dump(exclude_unset=True)
+            vals = t.model_dump(include=t.model_fields_set)
 
             should_append = True
             if duplicate_comp_func is not None:

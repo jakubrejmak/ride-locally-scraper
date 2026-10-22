@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Any, Mapping
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from ride_locally.db.schema import ScrapeStatus
+from ride_locally.models.ScraperRunMeta import ScraperRunMeta
 
 
 class ScraperRun(BaseModel):
@@ -14,7 +14,7 @@ class ScraperRun(BaseModel):
     id: int
     target_id: int
     status: ScrapeStatus
-    meta: Mapping[str, Any] | None = None
+    meta: ScraperRunMeta = Field(default_factory=ScraperRunMeta, frozen=True)
     priority: int
     should_process: bool
     o_filepath: str | None

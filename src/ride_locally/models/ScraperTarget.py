@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Mapping, Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from ride_locally.models.ScraperTargetConfig import ScraperTargetConfig
+from ride_locally.models.ScraperTargetMeta import ScraperTargetMeta
 
 
 class NewScrapeTarget(BaseModel):
@@ -12,7 +12,8 @@ class NewScrapeTarget(BaseModel):
     name: str
     url: str
     config: ScraperTargetConfig
-    meta: Mapping[str, Any] | None = None
+    meta: ScraperTargetMeta = Field(default_factory=ScraperTargetMeta,
+                                    frozen=True)
     is_active: bool
     schedule_cron: str | None
     carrier_id: int | None
