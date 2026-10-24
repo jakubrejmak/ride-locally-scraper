@@ -135,7 +135,10 @@ async def run_scrape(target: ScrapeTarget) -> bool:
 
         elif isinstance(result, ScrScriptResult):
             if result.self_update:
-                _ = await update_scr_target(target, result.self_update)
+                async with session() as s:
+                    _ = await update_scr_target(s, target.id,
+                                                result.self_update)
+                    await s.commit()
 
             if result.run_file_result:
                 o_filepath = save_result(

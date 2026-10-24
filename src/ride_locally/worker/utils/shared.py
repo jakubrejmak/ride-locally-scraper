@@ -21,14 +21,17 @@ async def get_target_config(target_id: int) -> ScraperTargetConfig:
 
 def diff_model_against(
     updated: BaseModel,
-    current: dict,
+        current: BaseModel,
     *,
     columns: set[str] | None = None,
 ) -> dict:
     """
     Returns fields set on updated that differ from current. Optionally filtered to `columns`
     """
-    dumped = updated.model_dump(include=updated.model_fields_set)
+    dumped_updated = updated.model_dump(include=updated.model_fields_set)
+    dumped_current = current.model_dump(include=current.model_fields_set)
     if columns is not None:
-        dumped = {k: v for k, v in dumped.items() if k in columns}
-    return {k: v for k, v in dumped.items() if v != current.get(k)}
+        dumped_updated = {k: v for k, v in dumped_updated.items() if
+                          k in columns}
+    return {k: v for k, v in dumped_updated.items() if
+            v != dumped_current.get(k)}

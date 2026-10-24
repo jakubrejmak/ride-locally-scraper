@@ -47,6 +47,20 @@ class ScrTargetTable(Base):
     """
 
     __tablename__ = "scr_targets"
+    __table_args__ = (
+        Index(
+            "ix_scr_targets_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_scr_targets_url_trgm",
+            "url",
+            postgresql_using="gin",
+            postgresql_ops={"url": "gin_trgm_ops"},
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -191,6 +205,20 @@ def _point() -> Geography:
 @final
 class CarriersTable(Base):
     __tablename__ = "carriers"
+    __table_args__ = (
+        Index(
+            "carriers_name_trgm_idx",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "carriers_homepage_trgm_idx",
+            "homepage",
+            postgresql_using="gin",
+            postgresql_ops={"homepage": "gin_trgm_ops"},
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
